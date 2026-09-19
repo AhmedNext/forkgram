@@ -53,8 +53,6 @@ android {
 
     defaultConfig.applicationId = "org.forkclient.messenger"
 
-    sourceSets.main.jniLibs.srcDirs = ['../TMessagesProj/jni/']
-
     lintOptions {
         disable 'MissingTranslation'
         disable 'ExtraTranslation'

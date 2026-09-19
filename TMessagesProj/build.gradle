@@ -289,7 +289,8 @@ task buildNativeDeps(description: 'Build native dependencies.') {
             println "NDK Directory: ${ndkDir}"
             println "Working Directory: ${projectDir}/jni"
             workingDir "${projectDir}/jni"
-            commandLine 'python3', 'prepare.py', 'silent', 'ndk=' + ndkDir, 'arm', 'arm64'
+            def targetArches = project.hasProperty('arm64-v8a') ? ['arm64'] : (project.hasProperty('armeabi-v7a') ? ['arm'] : ['arm', 'arm64'])
+            commandLine(['python3', 'prepare.py', 'silent', 'ndk=' + ndkDir] + targetArches)
         }
     }
 }

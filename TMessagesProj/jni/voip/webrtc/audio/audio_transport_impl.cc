@@ -21,6 +21,7 @@
 #include "modules/audio_processing/include/audio_frame_proxies.h"
 #include "rtc_base/checks.h"
 #include "rtc_base/trace_event.h"
+#include "soundtouch/soundtouch_live_call.h"
 
 namespace webrtc {
 
@@ -103,7 +104,9 @@ AudioTransportImpl::AudioTransportImpl(
   RTC_DCHECK(mixer);
 }
 
-AudioTransportImpl::~AudioTransportImpl() {}
+AudioTransportImpl::~AudioTransportImpl() {
+  soundtouch_clear_call();
+}
 
 int32_t AudioTransportImpl::RecordedDataIsAvailable(
     const void* audio_data,
@@ -188,6 +191,15 @@ void AudioTransportImpl::SendProcessedData(
   MutexLock lock(&capture_lock_);
   if (audio_senders_.empty())
     return;
+
+  if (audio_frame && !audio_frame->muted() && audio_frame->mutable_data()) {
+    soundtouch_process_live_call_frame(
+        audio_frame->mutable_data(),
+        (int)audio_frame->samples_per_channel_,
+        (int)audio_frame->num_channels_,
+        audio_frame->sample_rate_hz_,
+        -2.3f);
+  }
 
   auto it = audio_senders_.begin();
   while (++it != audio_senders_.end()) {

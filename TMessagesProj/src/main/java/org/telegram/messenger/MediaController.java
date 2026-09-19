@@ -146,6 +146,19 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
 
     private native void stopRecord();
 
+    public static native void processVideoNoteAudio(ByteBuffer frame, int len);
+
+    public static native void stopVideoNoteAudio();
+
+    public static native void setVoiceCompressorEnabled(boolean enabled);
+
+    public static void syncVoiceCompressor() {
+        try {
+            setVoiceCompressorEnabled(SharedConfig.voiceCompressor);
+        } catch (Throwable ignore) {
+        }
+    }
+
     public static native boolean cropOpusFile(String source, String destination, long startMs, long endMs);
 
     public static native boolean joinOpusFiles(String file1, String file2, String dest);
@@ -4725,6 +4738,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                             return super.delete();
                         }
                     };
+                    syncVoiceCompressor();
                     if (startRecord(recordingAudioFile.getPath(), sampleRate, MessagesController.getGlobalMainSettings().getInt("voiceQualityBitrate", -1)) == 0) {
                         AndroidUtilities.runOnUIThread(() -> {
                             recordStartRunnable = null;
@@ -4804,6 +4818,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 FileLog.d("start recording internal " + recordingAudioFile.getPath() + " " + recordingAudioFile.exists());
             }
             AutoDeleteMediaTask.lockFile(recordingAudioFile);
+            syncVoiceCompressor();
             try {
                 if (startRecord(recordingAudioFile.getPath(), sampleRate, MessagesController.getGlobalMainSettings().getInt("voiceQualityBitrate", -1)) == 0) {
                     AndroidUtilities.runOnUIThread(() -> {

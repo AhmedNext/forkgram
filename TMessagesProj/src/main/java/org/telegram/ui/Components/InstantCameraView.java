@@ -2238,6 +2238,7 @@ public class InstantCameraView extends FrameLayout implements NotificationCenter
                 boolean done = false;
                 AudioTimestamp audioTimestamp = new AudioTimestamp();
                 boolean shouldUseTimestamp = true;
+                MediaController.syncVoiceCompressor();
 
                 while (!done) {
                     if ((!running || pauseRecorder) && audioRecorder.getRecordingState() != AudioRecord.RECORDSTATE_STOPPED) {
@@ -2271,6 +2272,9 @@ public class InstantCameraView extends FrameLayout implements NotificationCenter
                         ByteBuffer byteBuffer = buffer.buffer[a];
                         byteBuffer.rewind();
                         readResult = audioRecorder.read(byteBuffer, 2048);
+                        if (readResult > 0) {
+                            MediaController.processVideoNoteAudio(byteBuffer, readResult);
+                        }
                         if (readResult > 0 && a % 2 == 0) {
                             byteBuffer.limit(readResult);
                             double s = 0;
@@ -2332,6 +2336,7 @@ public class InstantCameraView extends FrameLayout implements NotificationCenter
                 } catch (Exception e) {
                     FileLog.e(e);
                 }
+                MediaController.stopVideoNoteAudio();
                 if (!pauseRecorder) {
                     handler.sendMessage(handler.obtainMessage(MSG_STOP_RECORDING, sendWhenDone, 0, sendWhenDoneOptions));
                 }
@@ -3226,7 +3231,7 @@ public class InstantCameraView extends FrameLayout implements NotificationCenter
                 audioFormat.setString(MediaFormat.KEY_MIME, AUDIO_MIME_TYPE);
                 audioFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, audioSampleRate);
                 audioFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 1);
-                audioFormat.setInteger(MediaFormat.KEY_BIT_RATE, MessagesController.getInstance(currentAccount).roundAudioBitrate * 1024);
+                audioFormat.setInteger(MediaFormat.KEY_BIT_RATE, Math.max(MessagesController.getInstance(currentAccount).roundAudioBitrate, 128) * 1024);
                 audioFormat.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 2048 * AudioBufferInfo.MAX_SAMPLES);
 
                 audioEncoder = MediaCodec.createEncoderByType(AUDIO_MIME_TYPE);

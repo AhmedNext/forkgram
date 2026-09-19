@@ -168,6 +168,16 @@ add_library(${NATIVE_LIB} SHARED
         secureid_ocr.cpp
         tde2e/bridge.cpp
         tests.cpp
+        soundtouch/SoundTouch.cpp
+        soundtouch/TDStretch.cpp
+        soundtouch/RateTransposer.cpp
+        soundtouch/AAFilter.cpp
+        soundtouch/FIRFilter.cpp
+        soundtouch/FIFOSampleBuffer.cpp
+        soundtouch/InterpolateCubic.cpp
+        soundtouch/InterpolateLinear.cpp
+        soundtouch/InterpolateShannon.cpp
+        soundtouch/cpu_detect_x86.cpp
 )
 
 target_compile_options(${NATIVE_LIB} PUBLIC
@@ -186,6 +196,8 @@ target_sources(${NATIVE_LIB} PRIVATE
         third_party/xiph/ogg/src/framing.c)
 
 target_include_directories(${NATIVE_LIB} PUBLIC
+        soundtouch
+        ${CMAKE_CURRENT_SOURCE_DIR}/soundtouch
         third_party/xiph/opus/include
         third_party/xiph/opus/silk
         third_party/xiph/opus/silk/fixed

@@ -324,6 +324,7 @@ public class SharedConfig {
     public static boolean pauseMusicOnRecord = false;
     public static boolean pauseMusicOnMedia = false;
     public static boolean noiseSupression;
+    public static boolean voiceCompressor = false;
     public static boolean debugWebView;
     public static boolean sortContactsByName;
     public static boolean sortFilesByName;
@@ -483,6 +484,7 @@ public class SharedConfig {
                 editor.putInt("passportConfigHash", passportConfigHash);
                 editor.putBoolean("sortContactsByName", sortContactsByName);
                 editor.putBoolean("sortFilesByName", sortFilesByName);
+                editor.putBoolean("voiceCompressor", voiceCompressor);
                 editor.putInt("textSelectionHintShows", textSelectionHintShows);
                 editor.putInt("scheduledOrNoSoundHintShows", scheduledOrNoSoundHintShows);
                 editor.putLong("scheduledOrNoSoundHintSeenAt", scheduledOrNoSoundHintSeenAt);
@@ -567,6 +569,7 @@ public class SharedConfig {
             cfAccountID = preferences.getString("cfAccountID", "");
             cfApiToken = preferences.getString("cfApiToken", "");
             cfEnableStt = preferences.getBoolean("cfEnableStt", false);
+            voiceCompressor = preferences.getBoolean("voiceCompressor", false);
             String authKeyString = preferences.getString("pushAuthKey", null);
             if (!TextUtils.isEmpty(authKeyString)) {
                 pushAuthKey = Base64.decode(authKeyString, Base64.DEFAULT);

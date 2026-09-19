@@ -620,8 +620,7 @@ void WebRtcVoiceEngine::ApplyOptions(const AudioOptions& options_in) {
   }
 
   if (options.noise_suppression) {
-    const bool enabled = *options.noise_suppression;
-    apm_config.noise_suppression.enabled = enabled;
+    apm_config.noise_suppression.enabled = false;
     apm_config.noise_suppression.level =
         webrtc::AudioProcessing::Config::NoiseSuppression::Level::kHigh;
   }

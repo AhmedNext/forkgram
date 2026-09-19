@@ -136,6 +136,7 @@ public class ForkSettingsActivity extends BaseFragment {
     public static final int ID_CLOUDFLARE_ENABLE_STT = 63;
     public static final int ID_CLOUDFLARE_CREDENTIALS = 64;
     public static final int ID_TRANSLATION_PROVIDER = 65;
+    public static final int ID_VOICE_COMPRESSOR = 66;
 
     public static final int ID_BOT_SKIP_SHARE = 70;
     public static final int ID_BOT_SKIP_FULLSCREEN = 71;
@@ -668,6 +669,8 @@ public class ForkSettingsActivity extends BaseFragment {
         items.add(UItem.asShadow(null));
 
         items.add(UItem.asHeader(LocaleController.getString(R.string.ForkSectionVoice)));
+        items.add(UItem.asButtonCheck(ID_VOICE_COMPRESSOR, "ضاغط الصوت ودفء الصمامات", "محاكاة صوت إذاعي فخم، موازنة طبقات الصوت وإضافة دفء تناظري هارمونيك للرسائل الصوتية والمكالمات والفيديو الدائري.")
+            .setChecked(SharedConfig.voiceCompressor).setMultiline(true));
         items.add(UItem.asSettingsCell(ID_VOICE_QUALITY, LocaleController.getString(R.string.VoiceMessageQuality), getVoiceQualityText()));
         items.add(UItem.asButtonCheck(ID_DISABLE_AUTOPLAY_NEXT_VOICE, LocaleController.getString(R.string.DisableAutoplayNextVoice), LocaleController.getString(R.string.DisableAutoplayNextVoiceInfo))
             .setChecked(pref("disableAutoplayNextVoice", false)).setMultiline(true));
@@ -858,6 +861,11 @@ public class ForkSettingsActivity extends BaseFragment {
         } else if (id == ID_DISABLE_RECENT_FILES_ATTACHMENT) {
             toggle("disableRecentFilesAttachment", item, view);
 
+        } else if (id == ID_VOICE_COMPRESSOR) {
+            SharedConfig.voiceCompressor = !SharedConfig.voiceCompressor;
+            SharedConfig.saveConfig();
+            setCellChecked(view, SharedConfig.voiceCompressor);
+            MediaController.syncVoiceCompressor();
         } else if (id == ID_VOICE_QUALITY) {
             showVoiceQualityDialog();
         } else if (id == ID_DISABLE_AUTOPLAY_NEXT_VOICE) {

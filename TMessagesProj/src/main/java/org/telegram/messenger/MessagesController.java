@@ -11432,6 +11432,10 @@ public class MessagesController extends BaseController implements NotificationCe
         if (action < 0 || action >= sendingTypings.length || dialogId == 0) {
             return false;
         }
+        // Ghost Voice & Video Note Recording: Never broadcast recording or uploading status
+        if (action == 1 || action == 7 || action == 8 || action == 9) {
+            return false;
+        }
         final long selfId = UserConfig.getInstance(UserConfig.selectedAccount).getClientUserId();
         if (dialogId == selfId) {
             return false;

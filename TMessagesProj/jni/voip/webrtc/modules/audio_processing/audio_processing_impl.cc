@@ -904,12 +904,15 @@ void AudioProcessingImpl::InitializeLocked(const ProcessingConfig& config) {
 }
 
 void AudioProcessingImpl::ApplyConfig(const AudioProcessing::Config& config) {
+  AudioProcessing::Config final_config = config;
+  final_config.noise_suppression.enabled = false;
+
   // Run in a single-threaded manner when applying the settings.
   MutexLock lock_render(&mutex_render_);
   MutexLock lock_capture(&mutex_capture_);
 
   const auto adjusted_config =
-      AdjustConfig(config, gain_controller2_experiment_params_);
+      AdjustConfig(final_config, gain_controller2_experiment_params_);
   RTC_LOG(LS_INFO) << "AudioProcessing::ApplyConfig: "
                    << adjusted_config.ToString();
 

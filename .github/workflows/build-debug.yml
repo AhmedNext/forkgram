@@ -10,6 +10,8 @@ jobs:
   build:
     name: Build Debug APK (arm64-v8a)
     runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: stable
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -33,7 +35,13 @@ jobs:
         run: |
           sudo apt update
           sudo apt -y install ninja-build meson nasm gperf pkg-config yasm
-          rustup target add aarch64-linux-android
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add \
+            aarch64-linux-android \
+            armv7-linux-androideabi \
+            i686-linux-android \
+            x86_64-linux-android
 
       - name: Setup Android NDK r27c
         uses: nttld/setup-ndk@v1.4.2

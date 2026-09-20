@@ -674,6 +674,41 @@ public:
 
 static bool g_compressorEnabled = false;
 static float g_voicePitchSemitones = -2.3f;
+static int g_vocalPreset = 0;
+
+static void apply_vocal_preset(int preset, float sampleRate, VocalBiquad &hpf, VocalBiquad &warmth, VocalBiquad &debox, VocalBiquad &air, BroadcastVocalProcessor &comp) {
+    switch (preset) {
+        case 1: // Warm Velvet / Podcast
+            hpf.setHighPass(sampleRate, 70.0f, 0.7071f);
+            warmth.setPeaking(sampleRate, 140.0f, 2.8f, 1.8f);
+            debox.setPeaking(sampleRate, 450.0f, -2.0f, 1.4f);
+            air.setPeaking(sampleRate, 8500.0f, 1.8f, 1.0f);
+            comp.init(sampleRate);
+            break;
+        case 2: // Studio Crystal
+            hpf.setHighPass(sampleRate, 80.0f, 0.7071f);
+            warmth.setPeaking(sampleRate, 110.0f, 1.8f, 2.0f);
+            debox.setPeaking(sampleRate, 380.0f, -3.5f, 1.5f);
+            air.setPeaking(sampleRate, 10000.0f, 3.5f, 1.0f);
+            comp.init(sampleRate);
+            break;
+        case 3: // Cinematic Deep
+            hpf.setHighPass(sampleRate, 60.0f, 0.7071f);
+            warmth.setPeaking(sampleRate, 95.0f, 5.0f, 2.2f);
+            debox.setPeaking(sampleRate, 420.0f, -3.0f, 1.4f);
+            air.setPeaking(sampleRate, 8000.0f, 1.5f, 1.0f);
+            comp.init(sampleRate);
+            break;
+        case 0: // Radio Broadcaster (Default)
+        default:
+            hpf.setHighPass(sampleRate, 75.0f, 0.7071f);
+            warmth.setPeaking(sampleRate, 125.0f, 4.0f, 2.0f);
+            debox.setPeaking(sampleRate, 400.0f, -3.0f, 1.4f);
+            air.setPeaking(sampleRate, 9000.0f, 2.5f, 1.0f);
+            comp.init(sampleRate);
+            break;
+    }
+}
 
 extern "C" {
 void soundtouch_set_compressor_enabled(int enabled) {
@@ -686,6 +721,15 @@ void soundtouch_set_pitch_semitones(float pitch) {
 
 float soundtouch_get_pitch_semitones(void) {
     return g_voicePitchSemitones;
+}
+
+void soundtouch_set_vocal_preset(int preset) {
+    if (preset < 0 || preset > 3) preset = 0;
+    g_vocalPreset = preset;
+}
+
+int soundtouch_get_vocal_preset(void) {
+    return g_vocalPreset;
 }
 }
 
@@ -710,12 +754,8 @@ void soundtouch_init_recorder(int sampleRate, float pitchSemitones) {
     g_soundTouchRecorder->setSetting(SETTING_USE_AA_FILTER, 1);
     g_soundTouchRecorder->setSetting(SETTING_USE_QUICKSEEK, 0);
 
-    // Configure 4-band Studio Vocal EQ for Voice Notes
-    g_recorderHpf.setHighPass((float)sampleRate, 75.0f, 0.7071f);
-    g_recorderWarmth.setPeaking((float)sampleRate, 125.0f, 3.5f, 2.0f);
-    g_recorderDebox.setPeaking((float)sampleRate, 400.0f, -2.5f, 1.4f);
-    g_recorderAir.setPeaking((float)sampleRate, 9000.0f, 2.2f, 1.0f);
-    g_recorderCompressor.init((float)sampleRate);
+    // Configure 4-band Studio Vocal EQ according to selected Preset
+    apply_vocal_preset(g_vocalPreset, (float)sampleRate, g_recorderHpf, g_recorderWarmth, g_recorderDebox, g_recorderAir, g_recorderCompressor);
 }
 
 void soundtouch_put_samples(const short *samples, int numSamples) {
@@ -815,6 +855,7 @@ static VocalBiquad g_callDebox;  // Reduce boxiness around 400Hz -2.5dB
 static VocalBiquad g_callAir;    // High-frequency air at 9kHz +2.2dB (condenser mic presence)
 static BroadcastVocalProcessor g_callCompressor;
 static std::vector<float> g_callFifo;
+static int g_callPreset = -1;
 
 extern "C" {
 
@@ -822,6 +863,11 @@ void soundtouch_process_live_call_frame(short *samples, int numSamples, int chan
     if (!samples || numSamples <= 0 || channels <= 0 || sampleRate <= 0) return;
 
     std::lock_guard<std::mutex> lock(g_callMutex);
+
+    if (g_callPreset != g_vocalPreset) {
+        apply_vocal_preset(g_vocalPreset, (float)sampleRate, g_callHpf, g_callWarmth, g_callDebox, g_callAir, g_callCompressor);
+        g_callPreset = g_vocalPreset;
+    }
 
     if (fabsf(pitchSemitones) < 0.01f) {
         for (int i = 0; i < numSamples; ++i) {
@@ -866,17 +912,9 @@ void soundtouch_process_live_call_frame(short *samples, int numSamples, int chan
         g_soundTouchCall->setSetting(SETTING_USE_AA_FILTER, 1);
         g_soundTouchCall->setSetting(SETTING_USE_QUICKSEEK, 1);
 
-        // Configure Vocal EQ Filters for Call
-        // 1. High-Pass Filter: Cut sub-bass <= 75Hz
-        g_callHpf.setHighPass((float)sampleRate, 75.0f, 0.7071f);
-        // 2. Warmth / Chest Resonance: Boost 125Hz by +3.5dB (Q=2.0)
-        g_callWarmth.setPeaking((float)sampleRate, 125.0f, 3.5f, 2.0f);
-        // 3. De-box: Reduce hollow/boxy frequencies around 400Hz by -2.5dB (Q=1.4)
-        g_callDebox.setPeaking((float)sampleRate, 400.0f, -2.5f, 1.4f);
-        // 4. Air / Intimate Presence: Boost 9000Hz by +2.2dB (Q=1.0)
-        g_callAir.setPeaking((float)sampleRate, 9000.0f, 2.2f, 1.0f);
-
-        g_callCompressor.init((float)sampleRate);
+        // Configure Vocal EQ Filters according to selected preset
+        apply_vocal_preset(g_vocalPreset, (float)sampleRate, g_callHpf, g_callWarmth, g_callDebox, g_callAir, g_callCompressor);
+        g_callPreset = g_vocalPreset;
 
         g_callSampleRate = sampleRate;
         g_callChannels = channels;
@@ -999,6 +1037,7 @@ void soundtouch_clear_call(void) {
     g_callSampleRate = 0;
     g_callChannels = 0;
     g_callPitch = 0.0f;
+    g_callPreset = -1;
 }
 
 /* ========================================================================= */
@@ -1016,11 +1055,17 @@ static VocalBiquad g_vnWarmth;
 static VocalBiquad g_vnDebox;
 static VocalBiquad g_vnAir;
 static BroadcastVocalProcessor g_vnCompressor;
+static int g_vnPreset = -1;
 
 void soundtouch_process_video_note_frame(short *samples, int numSamples, int channels, int sampleRate, float pitchSemitones) {
     if (!samples || numSamples <= 0 || channels <= 0 || sampleRate <= 0) return;
 
     std::lock_guard<std::mutex> lock(g_vnMutex);
+
+    if (g_vnPreset != g_vocalPreset) {
+        apply_vocal_preset(g_vocalPreset, (float)sampleRate, g_vnHpf, g_vnWarmth, g_vnDebox, g_vnAir, g_vnCompressor);
+        g_vnPreset = g_vocalPreset;
+    }
 
     if (fabsf(pitchSemitones) < 0.01f) {
         for (int i = 0; i < numSamples; ++i) {
@@ -1062,12 +1107,9 @@ void soundtouch_process_video_note_frame(short *samples, int numSamples, int cha
         g_soundTouchVideoNote->setSetting(SETTING_USE_AA_FILTER, 1);
         g_soundTouchVideoNote->setSetting(SETTING_USE_QUICKSEEK, 0);
 
-        // Configure 4-Band Studio Vocal EQ
-        g_vnHpf.setHighPass((float)sampleRate, 75.0f, 0.7071f);
-        g_vnWarmth.setPeaking((float)sampleRate, 125.0f, 3.5f, 2.0f);
-        g_vnDebox.setPeaking((float)sampleRate, 400.0f, -2.5f, 1.4f);
-        g_vnAir.setPeaking((float)sampleRate, 9000.0f, 2.2f, 1.0f);
-        g_vnCompressor.init((float)sampleRate);
+        // Configure 4-Band Studio Vocal EQ according to selected preset
+        apply_vocal_preset(g_vocalPreset, (float)sampleRate, g_vnHpf, g_vnWarmth, g_vnDebox, g_vnAir, g_vnCompressor);
+        g_vnPreset = g_vocalPreset;
 
         g_vnSampleRate = sampleRate;
         g_vnChannels = channels;
@@ -1154,6 +1196,7 @@ void soundtouch_clear_video_note(void) {
     g_vnSampleRate = 0;
     g_vnChannels = 0;
     g_vnPitch = 0.0f;
+    g_vnPreset = -1;
 }
 
 }

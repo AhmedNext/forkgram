@@ -139,6 +139,8 @@ public class ForkSettingsActivity extends BaseFragment {
     public static final int ID_TRANSLATION_PROVIDER = 65;
     public static final int ID_VOICE_COMPRESSOR = 66;
     public static final int ID_VOICE_PITCH = 67;
+    public static final int ID_RAW_MIC_SOURCE = 68;
+    public static final int ID_VOCAL_PRESET = 69;
 
     public static final int ID_BOT_SKIP_SHARE = 70;
     public static final int ID_BOT_SKIP_FULLSCREEN = 71;
@@ -302,6 +304,22 @@ public class ForkSettingsActivity extends BaseFragment {
             return LocaleController.getString(R.string.Disable);
         }
         return String.format(java.util.Locale.US, "%.1f", pitch);
+    }
+
+    private static String getVocalPresetText() {
+        int preset = SharedConfig.vocalPreset;
+        switch (preset) {
+            case 0:
+                return LocaleController.isRTL ? "مذيع الراديو الاحترافي" : "Radio Broadcaster";
+            case 1:
+                return LocaleController.isRTL ? "بودكاست دافئ مخملي" : "Warm Velvet / Podcast";
+            case 2:
+                return LocaleController.isRTL ? "كريستال ستوديو نقي" : "Studio Crystal";
+            case 3:
+                return LocaleController.isRTL ? "سينمائي عميق وفخم" : "Cinematic Deep";
+            default:
+                return LocaleController.isRTL ? "مذيع الراديو الاحترافي" : "Radio Broadcaster";
+        }
     }
 
     public static String getOfflineTranscriberText() {
@@ -681,6 +699,9 @@ public class ForkSettingsActivity extends BaseFragment {
         items.add(UItem.asHeader(LocaleController.getString(R.string.ForkSectionVoice)));
         items.add(UItem.asButtonCheck(ID_VOICE_COMPRESSOR, "ضاغط الصوت ودفء الصمامات", "محاكاة صوت إذاعي فخم، موازنة طبقات الصوت وإضافة دفء تناظري هارمونيك للرسائل الصوتية والمكالمات والفيديو الدائري.")
             .setChecked(SharedConfig.voiceCompressor).setMultiline(true));
+        items.add(UItem.asButtonCheck(ID_RAW_MIC_SOURCE, LocaleController.isRTL ? "ميكروفون ستوديو نقي (تجاوز كتم الهاتف)" : "Studio Raw Mic (Bypass Phone Muffle)", LocaleController.isRTL ? "تجاوز معالجة وفلترة الهاتف المدمجة لإطلاق كامل ترددات الميكروفون الحقيقية بنقاء ستوديو." : "Bypass phone OEM noise suppression and telephony filtering to capture full-frequency raw microphone audio.")
+            .setChecked(SharedConfig.rawMicSource).setMultiline(true));
+        items.add(UItem.asSettingsCell(ID_VOCAL_PRESET, LocaleController.isRTL ? "نمط ومعالجة الصوت (Vocal Preset)" : "Vocal Style Preset", getVocalPresetText()));
         items.add(UItem.asSettingsCell(ID_VOICE_PITCH, LocaleController.isRTL ? "درجة طبقة الصوت (Pitch Shift)" : "Voice Pitch (Semitones)", getVoicePitchText()));
         items.add(UItem.asSettingsCell(ID_VOICE_QUALITY, LocaleController.getString(R.string.VoiceMessageQuality), getVoiceQualityText()));
         items.add(UItem.asButtonCheck(ID_DISABLE_AUTOPLAY_NEXT_VOICE, LocaleController.getString(R.string.DisableAutoplayNextVoice), LocaleController.getString(R.string.DisableAutoplayNextVoiceInfo))
@@ -877,6 +898,12 @@ public class ForkSettingsActivity extends BaseFragment {
             SharedConfig.saveConfig();
             setCellChecked(view, SharedConfig.voiceCompressor);
             MediaController.syncVoiceCompressor();
+        } else if (id == ID_RAW_MIC_SOURCE) {
+            SharedConfig.rawMicSource = !SharedConfig.rawMicSource;
+            SharedConfig.saveConfig();
+            setCellChecked(view, SharedConfig.rawMicSource);
+        } else if (id == ID_VOCAL_PRESET) {
+            showVocalPresetDialog();
         } else if (id == ID_VOICE_PITCH) {
             showVoicePitchDialog();
         } else if (id == ID_VOICE_QUALITY) {
@@ -1455,6 +1482,29 @@ public class ForkSettingsActivity extends BaseFragment {
             SharedConfig.voicePitch = pitches[index];
             SharedConfig.saveConfig();
             MediaController.syncVoicePitch();
+            listView.adapter.update(false);
+        });
+    }
+
+    private void showVocalPresetDialog() {
+        final String defaultSuffix = LocaleController.isRTL ? " (الافتراضي - الأفضل)" : " (Default - Broadcaster)";
+        final String[] options = {
+            (LocaleController.isRTL ? "مذيع الراديو الاحترافي (Radio Broadcaster)" : "Radio Broadcaster") + defaultSuffix,
+            LocaleController.isRTL ? "بودكاست دافئ مخملي (Warm Velvet / Podcast)" : "Warm Velvet / Podcast",
+            LocaleController.isRTL ? "كريستال ستوديو نقي (Studio Crystal)" : "Studio Crystal",
+            LocaleController.isRTL ? "سينمائي عميق وفخم (Cinematic Deep)" : "Cinematic Deep"
+        };
+
+        int selectedIndex = SharedConfig.vocalPreset;
+        if (selectedIndex < 0 || selectedIndex >= options.length) {
+            selectedIndex = 0;
+        }
+
+        String title = LocaleController.isRTL ? "نمط ومعالجة الصوت" : "Vocal Style Preset";
+        showRadioDialog(title, options, selectedIndex, index -> {
+            SharedConfig.vocalPreset = index;
+            SharedConfig.saveConfig();
+            MediaController.syncVocalPreset();
             listView.adapter.update(false);
         });
     }

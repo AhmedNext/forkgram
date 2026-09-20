@@ -326,6 +326,21 @@ public class SharedConfig {
     public static boolean noiseSupression;
     public static boolean voiceCompressor = false;
     public static float voicePitch = -2.3f;
+    public static boolean rawMicSource = true;
+    public static int vocalPreset = 0;
+
+    public static int getAudioSource(boolean isCall) {
+        if (!rawMicSource) {
+            return isCall ? android.media.MediaRecorder.AudioSource.VOICE_COMMUNICATION : android.media.MediaRecorder.AudioSource.DEFAULT;
+        }
+        if (isCall) {
+            return android.media.MediaRecorder.AudioSource.VOICE_RECOGNITION;
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 24) {
+            return android.media.MediaRecorder.AudioSource.UNPROCESSED;
+        }
+        return android.media.MediaRecorder.AudioSource.VOICE_RECOGNITION;
+    }
     public static boolean debugWebView;
     public static boolean sortContactsByName;
     public static boolean sortFilesByName;
@@ -487,6 +502,8 @@ public class SharedConfig {
                 editor.putBoolean("sortFilesByName", sortFilesByName);
                 editor.putBoolean("voiceCompressor", voiceCompressor);
                 editor.putFloat("voicePitch", voicePitch);
+                editor.putBoolean("rawMicSource", rawMicSource);
+                editor.putInt("vocalPreset", vocalPreset);
                 editor.putInt("textSelectionHintShows", textSelectionHintShows);
                 editor.putInt("scheduledOrNoSoundHintShows", scheduledOrNoSoundHintShows);
                 editor.putLong("scheduledOrNoSoundHintSeenAt", scheduledOrNoSoundHintSeenAt);
@@ -573,7 +590,10 @@ public class SharedConfig {
             cfEnableStt = preferences.getBoolean("cfEnableStt", false);
             voiceCompressor = preferences.getBoolean("voiceCompressor", false);
             voicePitch = preferences.getFloat("voicePitch", -2.3f);
+            rawMicSource = preferences.getBoolean("rawMicSource", true);
+            vocalPreset = preferences.getInt("vocalPreset", 0);
             MediaController.syncVoicePitch();
+            MediaController.syncVocalPreset();
             String authKeyString = preferences.getString("pushAuthKey", null);
             if (!TextUtils.isEmpty(authKeyString)) {
                 pushAuthKey = Base64.decode(authKeyString, Base64.DEFAULT);

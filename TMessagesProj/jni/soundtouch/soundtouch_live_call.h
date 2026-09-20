@@ -46,6 +46,16 @@ void soundtouch_set_pitch_semitones(float pitch);
  */
 float soundtouch_get_pitch_semitones(void);
 
+/**
+ * Set global vocal style preset (0: Radio, 1: Warm Podcast, 2: Studio Crystal, 3: Cinematic Deep).
+ */
+void soundtouch_set_vocal_preset(int preset);
+
+/**
+ * Get current global vocal style preset.
+ */
+int soundtouch_get_vocal_preset(void);
+
 #ifdef __cplusplus
 }
 #endif

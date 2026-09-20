@@ -194,7 +194,7 @@ public class WebRtcAudioRecord {
 
   @CalledByNative
   WebRtcAudioRecord(Context context, AudioManager audioManager) {
-    this(context, newDefaultScheduler() /* scheduler */, audioManager, DEFAULT_AUDIO_SOURCE,
+    this(context, newDefaultScheduler() /* scheduler */, audioManager, org.telegram.messenger.SharedConfig.getAudioSource(true),
         DEFAULT_AUDIO_FORMAT, null /* errorCallback */, null /* stateCallback */,
         null /* audioSamplesReadyCallback */, WebRtcAudioEffects.isAcousticEchoCancelerSupported(),
         WebRtcAudioEffects.isNoiseSuppressorSupported());
@@ -328,10 +328,50 @@ public class WebRtcAudioRecord {
         audioSourceMatchesRecordingSessionRef.set(null);
       }
     } catch (IllegalArgumentException | UnsupportedOperationException e) {
-      // Report of exception message is sufficient. Example: "Cannot create AudioRecord".
-      reportWebRtcAudioRecordInitError(e.getMessage());
+      if (audioSource != DEFAULT_AUDIO_SOURCE) {
+        Logging.w(TAG, "AudioRecord init failed with source " + audioSource + ", falling back to DEFAULT_AUDIO_SOURCE: " + e.getMessage());
+        try {
+          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            audioRecord = createAudioRecordOnMOrHigher(
+                DEFAULT_AUDIO_SOURCE, sampleRate, channelConfig, audioFormat, bufferSizeInBytes);
+            audioSourceMatchesRecordingSessionRef.set(null);
+            if (preferredDevice != null) {
+              setPreferredDevice(preferredDevice);
+            }
+          } else {
+            audioRecord = createAudioRecordOnLowerThanM(
+                DEFAULT_AUDIO_SOURCE, sampleRate, channelConfig, audioFormat, bufferSizeInBytes);
+            audioSourceMatchesRecordingSessionRef.set(null);
+          }
+        } catch (Exception fallbackEx) {
+          reportWebRtcAudioRecordInitError(fallbackEx.getMessage());
+          releaseAudioResources();
+          return -1;
+        }
+      } else {
+        // Report of exception message is sufficient. Example: "Cannot create AudioRecord".
+        reportWebRtcAudioRecordInitError(e.getMessage());
+        releaseAudioResources();
+        return -1;
+      }
+    }
+    if ((audioRecord == null || audioRecord.getState() != AudioRecord.STATE_INITIALIZED) && audioSource != DEFAULT_AUDIO_SOURCE) {
+      Logging.w(TAG, "AudioRecord not initialized with source " + audioSource + ", falling back to DEFAULT_AUDIO_SOURCE");
       releaseAudioResources();
-      return -1;
+      try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+          audioRecord = createAudioRecordOnMOrHigher(
+              DEFAULT_AUDIO_SOURCE, sampleRate, channelConfig, audioFormat, bufferSizeInBytes);
+          audioSourceMatchesRecordingSessionRef.set(null);
+          if (preferredDevice != null) {
+            setPreferredDevice(preferredDevice);
+          }
+        } else {
+          audioRecord = createAudioRecordOnLowerThanM(
+              DEFAULT_AUDIO_SOURCE, sampleRate, channelConfig, audioFormat, bufferSizeInBytes);
+          audioSourceMatchesRecordingSessionRef.set(null);
+        }
+      } catch (Exception ignored) {}
     }
     if (audioRecord == null || audioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
       reportWebRtcAudioRecordInitError("Creation or initialization of audio recorder failed.");

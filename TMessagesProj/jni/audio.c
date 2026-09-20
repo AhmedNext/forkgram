@@ -21,6 +21,8 @@ extern void soundtouch_clear_video_note(void);
 extern void soundtouch_set_compressor_enabled(int enabled);
 extern void soundtouch_set_pitch_semitones(float pitch);
 extern float soundtouch_get_pitch_semitones(void);
+extern void soundtouch_set_vocal_preset(int preset);
+extern int soundtouch_get_vocal_preset(void);
 
 typedef struct {
     int version;
@@ -568,6 +570,10 @@ JNIEXPORT void Java_org_telegram_messenger_MediaController_setVoiceCompressorEna
 
 JNIEXPORT void Java_org_telegram_messenger_MediaController_setVoicePitchSemitones(JNIEnv *env, jclass class, jfloat pitch) {
     soundtouch_set_pitch_semitones((float)pitch);
+}
+
+JNIEXPORT void Java_org_telegram_messenger_MediaController_setVocalPreset(JNIEnv *env, jclass class, jint preset) {
+    soundtouch_set_vocal_preset((int)preset);
 }
 
 JNIEXPORT jint Java_org_telegram_messenger_MediaController_isOpusFile(JNIEnv *env, jclass class, jstring path) {

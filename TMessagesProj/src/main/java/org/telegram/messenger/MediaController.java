@@ -154,10 +154,13 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
 
     public static native void setVoicePitchSemitones(float pitch);
 
+    public static native void setVocalPreset(int preset);
+
     public static void syncVoiceCompressor() {
         try {
             setVoiceCompressorEnabled(SharedConfig.voiceCompressor);
             setVoicePitchSemitones(SharedConfig.voicePitch);
+            setVocalPreset(SharedConfig.vocalPreset);
         } catch (Throwable ignore) {
         }
     }
@@ -165,8 +168,34 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
     public static void syncVoicePitch() {
         try {
             setVoicePitchSemitones(SharedConfig.voicePitch);
+            setVocalPreset(SharedConfig.vocalPreset);
         } catch (Throwable ignore) {
         }
+    }
+
+    public static void syncVocalPreset() {
+        try {
+            setVocalPreset(SharedConfig.vocalPreset);
+        } catch (Throwable ignore) {
+        }
+    }
+
+    public static AudioRecord createSafeAudioRecord(int sampleRate, int channelConfig, int audioFormat, int bufferSize) {
+        int audioSource = SharedConfig.getAudioSource(false);
+        AudioRecord record = null;
+        try {
+            record = new AudioRecord(audioSource, sampleRate, channelConfig, audioFormat, bufferSize);
+            if (record.getState() != AudioRecord.STATE_INITIALIZED) {
+                record.release();
+                record = null;
+            }
+        } catch (Throwable ignore) {
+            record = null;
+        }
+        if (record == null) {
+            record = new AudioRecord(MediaRecorder.AudioSource.DEFAULT, sampleRate, channelConfig, audioFormat, bufferSize);
+        }
+        return record;
     }
 
     public static native boolean cropOpusFile(String source, String destination, long startMs, long endMs);
@@ -4764,7 +4793,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                         requestRecordAudioFocus(true);
 //                        MediaDataController.getInstance(recordingCurrentAccount).pushDraftVoiceMessage(recordDialogId, recordTopicId, null);
 //
-                        audioRecorder = new AudioRecord(MediaRecorder.AudioSource.DEFAULT, sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, recordBufferSize);
+                        audioRecorder = createSafeAudioRecord(sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, recordBufferSize);
                         recordStartTime = System.currentTimeMillis();
                         writtenFrame = 0;
                         samplesCount = 0;
@@ -4842,7 +4871,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 }
 
                 audioRecorderPaused = false;
-                audioRecorder = new AudioRecord(MediaRecorder.AudioSource.DEFAULT, sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, recordBufferSize);
+                audioRecorder = createSafeAudioRecord(sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, recordBufferSize);
                 recordStartTime = System.currentTimeMillis();
                 recordTimeCount = 0;
                 writtenFrame = 0;

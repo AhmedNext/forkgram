@@ -152,9 +152,19 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
 
     public static native void setVoiceCompressorEnabled(boolean enabled);
 
+    public static native void setVoicePitchSemitones(float pitch);
+
     public static void syncVoiceCompressor() {
         try {
             setVoiceCompressorEnabled(SharedConfig.voiceCompressor);
+            setVoicePitchSemitones(SharedConfig.voicePitch);
+        } catch (Throwable ignore) {
+        }
+    }
+
+    public static void syncVoicePitch() {
+        try {
+            setVoicePitchSemitones(SharedConfig.voicePitch);
         } catch (Throwable ignore) {
         }
     }

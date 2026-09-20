@@ -138,6 +138,7 @@ public class ForkSettingsActivity extends BaseFragment {
     public static final int ID_CLOUDFLARE_CREDENTIALS = 64;
     public static final int ID_TRANSLATION_PROVIDER = 65;
     public static final int ID_VOICE_COMPRESSOR = 66;
+    public static final int ID_VOICE_PITCH = 67;
 
     public static final int ID_BOT_SKIP_SHARE = 70;
     public static final int ID_BOT_SKIP_FULLSCREEN = 71;
@@ -293,6 +294,14 @@ public class ForkSettingsActivity extends BaseFragment {
         if (bitrate <= 32000) return LocaleController.getString(R.string.VoiceQualityMedium);
         if (bitrate <= 64000) return LocaleController.getString(R.string.VoiceQualityHigh);
         return LocaleController.getString(R.string.VoiceQualityMax);
+    }
+
+    private static String getVoicePitchText() {
+        float pitch = SharedConfig.voicePitch;
+        if (Math.abs(pitch) < 0.01f) {
+            return LocaleController.getString(R.string.Disable);
+        }
+        return String.format(java.util.Locale.US, "%.1f", pitch);
     }
 
     public static String getOfflineTranscriberText() {
@@ -672,6 +681,7 @@ public class ForkSettingsActivity extends BaseFragment {
         items.add(UItem.asHeader(LocaleController.getString(R.string.ForkSectionVoice)));
         items.add(UItem.asButtonCheck(ID_VOICE_COMPRESSOR, "ضاغط الصوت ودفء الصمامات", "محاكاة صوت إذاعي فخم، موازنة طبقات الصوت وإضافة دفء تناظري هارمونيك للرسائل الصوتية والمكالمات والفيديو الدائري.")
             .setChecked(SharedConfig.voiceCompressor).setMultiline(true));
+        items.add(UItem.asSettingsCell(ID_VOICE_PITCH, LocaleController.isRTL ? "درجة طبقة الصوت (Pitch Shift)" : "Voice Pitch (Semitones)", getVoicePitchText()));
         items.add(UItem.asSettingsCell(ID_VOICE_QUALITY, LocaleController.getString(R.string.VoiceMessageQuality), getVoiceQualityText()));
         items.add(UItem.asButtonCheck(ID_DISABLE_AUTOPLAY_NEXT_VOICE, LocaleController.getString(R.string.DisableAutoplayNextVoice), LocaleController.getString(R.string.DisableAutoplayNextVoiceInfo))
             .setChecked(pref("disableAutoplayNextVoice", false)).setMultiline(true));
@@ -867,6 +877,8 @@ public class ForkSettingsActivity extends BaseFragment {
             SharedConfig.saveConfig();
             setCellChecked(view, SharedConfig.voiceCompressor);
             MediaController.syncVoiceCompressor();
+        } else if (id == ID_VOICE_PITCH) {
+            showVoicePitchDialog();
         } else if (id == ID_VOICE_QUALITY) {
             showVoiceQualityDialog();
         } else if (id == ID_DISABLE_AUTOPLAY_NEXT_VOICE) {
@@ -1412,6 +1424,37 @@ public class ForkSettingsActivity extends BaseFragment {
             SharedPreferences.Editor editor = prefs().edit();
             editor.putInt("voiceQualityBitrate", bitrates[index]);
             editor.commit();
+            listView.adapter.update(false);
+        });
+    }
+
+    private void showVoicePitchDialog() {
+        final String defaultSuffix = LocaleController.isRTL ? " (الافتراضي)" : " (Default)";
+        final String[] options = {
+            LocaleController.getString(R.string.Disable),
+            "-2.0",
+            "-2.1",
+            "-2.2",
+            "-2.3" + defaultSuffix,
+            "-2.4",
+            "-2.5"
+        };
+        final float[] pitches = {0.0f, -2.0f, -2.1f, -2.2f, -2.3f, -2.4f, -2.5f};
+
+        float currentPitch = SharedConfig.voicePitch;
+        int selectedIndex = 4;
+        for (int i = 0; i < pitches.length; i++) {
+            if (Math.abs(pitches[i] - currentPitch) < 0.05f) {
+                selectedIndex = i;
+                break;
+            }
+        }
+
+        String title = LocaleController.isRTL ? "درجة طبقة الصوت (Pitch Shift)" : "Voice Pitch Shift";
+        showRadioDialog(title, options, selectedIndex, index -> {
+            SharedConfig.voicePitch = pitches[index];
+            SharedConfig.saveConfig();
+            MediaController.syncVoicePitch();
             listView.adapter.update(false);
         });
     }

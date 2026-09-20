@@ -2239,6 +2239,7 @@ public class InstantCameraView extends FrameLayout implements NotificationCenter
                 AudioTimestamp audioTimestamp = new AudioTimestamp();
                 boolean shouldUseTimestamp = true;
                 MediaController.syncVoiceCompressor();
+                MediaController.syncVoicePitch();
 
                 while (!done) {
                     if ((!running || pauseRecorder) && audioRecorder.getRecordingState() != AudioRecord.RECORDSTATE_STOPPED) {

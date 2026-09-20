@@ -19,6 +19,8 @@ extern void soundtouch_clear_recorder(void);
 extern void soundtouch_process_video_note_frame(short *samples, int numSamples, int channels, int sampleRate, float pitchSemitones);
 extern void soundtouch_clear_video_note(void);
 extern void soundtouch_set_compressor_enabled(int enabled);
+extern void soundtouch_set_pitch_semitones(float pitch);
+extern float soundtouch_get_pitch_semitones(void);
 
 typedef struct {
     int version;
@@ -313,7 +315,7 @@ int initRecorder(const char *path, opus_int32 sampleRate, opus_int32 bitratePara
 
     coding_rate = sampleRate;
     rate = sampleRate;
-    bitrate = 48000;
+    bitrate = (bitrateParam > 48000) ? bitrateParam : 128000;
 
     if (!path) {
         LOGE("path is null");
@@ -347,8 +349,8 @@ int initRecorder(const char *path, opus_int32 sampleRate, opus_int32 bitratePara
         return 0;
     }
 
-    /* Initialize SoundTouch with -2.3 semitones */
-    soundtouch_init_recorder(rate, -2.3f);
+    /* Initialize SoundTouch with current configured pitch */
+    soundtouch_init_recorder(rate, soundtouch_get_pitch_semitones());
     
     header.channels = 1;
     header.channel_mapping = 0;
@@ -474,7 +476,7 @@ int writeFrame(uint8_t *framePcmBytes, uint32_t frameByteCount, int end) {
         total_samples += received;
         op.e_o_s = end && (soundtouch_num_samples() == 0);
 
-        int nbBytes = opus_encode(_encoder, (opus_int16 *)shiftedPcm, cur_frame_size, _packet, max_frame_bytes / 10);
+        int nbBytes = opus_encode(_encoder, (opus_int16 *)shiftedPcm, cur_frame_size, _packet, max_frame_bytes);
         if (nbBytes < 0) {
             LOGE("Encoding failed: %s. Aborting.", opus_strerror(nbBytes));
             return 0;
@@ -553,7 +555,7 @@ JNIEXPORT void Java_org_telegram_messenger_MediaController_processVideoNoteAudio
     if (!frame || len <= 0) return;
     jbyte *frameBytes = (*env)->GetDirectBufferAddress(env, frame);
     if (!frameBytes) return;
-    soundtouch_process_video_note_frame((short *) frameBytes, len / 2, 1, 48000, -2.3f);
+    soundtouch_process_video_note_frame((short *) frameBytes, len / 2, 1, 48000, soundtouch_get_pitch_semitones());
 }
 
 JNIEXPORT void Java_org_telegram_messenger_MediaController_stopVideoNoteAudio(JNIEnv *env, jclass class) {
@@ -562,6 +564,10 @@ JNIEXPORT void Java_org_telegram_messenger_MediaController_stopVideoNoteAudio(JN
 
 JNIEXPORT void Java_org_telegram_messenger_MediaController_setVoiceCompressorEnabled(JNIEnv *env, jclass class, jboolean enabled) {
     soundtouch_set_compressor_enabled(enabled ? 1 : 0);
+}
+
+JNIEXPORT void Java_org_telegram_messenger_MediaController_setVoicePitchSemitones(JNIEnv *env, jclass class, jfloat pitch) {
+    soundtouch_set_pitch_semitones((float)pitch);
 }
 
 JNIEXPORT jint Java_org_telegram_messenger_MediaController_isOpusFile(JNIEnv *env, jclass class, jstring path) {

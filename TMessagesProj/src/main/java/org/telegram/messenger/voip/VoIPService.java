@@ -1058,6 +1058,8 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 			systemCallConnection.setDialing();
 		}
 		configureDeviceForCall();
+		MediaController.syncVoiceCompressor();
+		MediaController.syncVoicePitch();
 		showNotification();
 		startConnectingSound();
 		dispatchStateChanged(STATE_REQUESTING);

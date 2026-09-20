@@ -1107,14 +1107,14 @@ class WebRtcVoiceSendChannel::WebRtcAudioSendStream : public AudioSource::Sink {
     // - a reasonable default of 32kbps min/max
     // - fixed target bitrate from codec spec
     // - lower min bitrate if adaptive ptime is enabled
-    const int kDefaultBitrateBps = 32000;
-    config_.min_bitrate_bps = kDefaultBitrateBps;
+    const int kDefaultBitrateBps = 128000;
+    config_.min_bitrate_bps = 32000;
     config_.max_bitrate_bps = kDefaultBitrateBps;
 
     if (config_.send_codec_spec &&
         config_.send_codec_spec->target_bitrate_bps) {
-      config_.min_bitrate_bps = *config_.send_codec_spec->target_bitrate_bps;
-      config_.max_bitrate_bps = *config_.send_codec_spec->target_bitrate_bps;
+      config_.min_bitrate_bps = std::max(32000, *config_.send_codec_spec->target_bitrate_bps);
+      config_.max_bitrate_bps = std::max(kDefaultBitrateBps, *config_.send_codec_spec->target_bitrate_bps);
     }
 
     if (rtp_parameters_.encodings[0].adaptive_ptime) {

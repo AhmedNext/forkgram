@@ -36,6 +36,16 @@ void soundtouch_clear_video_note(void);
  */
 void soundtouch_set_compressor_enabled(int enabled);
 
+/**
+ * Set global pitch shift semitones for calls, voice notes, and video notes.
+ */
+void soundtouch_set_pitch_semitones(float pitch);
+
+/**
+ * Get current global pitch shift semitones.
+ */
+float soundtouch_get_pitch_semitones(void);
+
 #ifdef __cplusplus
 }
 #endif

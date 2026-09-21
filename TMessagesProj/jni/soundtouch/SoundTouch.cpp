@@ -905,12 +905,12 @@ void soundtouch_process_live_call_frame(short *samples, int numSamples, int chan
         g_soundTouchCall->setPitchSemiTones(pitchSemitones);
         g_soundTouchCall->setTempo(1.0f);
 
-        // Low-latency settings tailored for live real-time conversational VoIP
-        g_soundTouchCall->setSetting(SETTING_SEQUENCE_MS, 30);
+        // Studio-grade pitch shifting parameters tailored for crystal clear VoIP
+        g_soundTouchCall->setSetting(SETTING_SEQUENCE_MS, 40);
         g_soundTouchCall->setSetting(SETTING_SEEKWINDOW_MS, 15);
         g_soundTouchCall->setSetting(SETTING_OVERLAP_MS, 8);
         g_soundTouchCall->setSetting(SETTING_USE_AA_FILTER, 1);
-        g_soundTouchCall->setSetting(SETTING_USE_QUICKSEEK, 1);
+        g_soundTouchCall->setSetting(SETTING_USE_QUICKSEEK, 0); // 0 = Full precision cross-correlation (Studio Broadcast Quality, NO metallic artifacts)
 
         // Configure Vocal EQ Filters according to selected preset
         apply_vocal_preset(g_vocalPreset, (float)sampleRate, g_callHpf, g_callWarmth, g_callDebox, g_callAir, g_callCompressor);
@@ -922,10 +922,18 @@ void soundtouch_process_live_call_frame(short *samples, int numSamples, int chan
 
         g_callFifo.clear();
 
-        // Prime pipeline with low-latency silence
-        int primeSamples = (sampleRate * 45) / 1000;
+        // Prime pipeline with low-latency silence and drain immediately into FIFO
+        int primeSamples = (sampleRate * 80) / 1000;
         std::vector<float> primeSilence(primeSamples * channels, 0.0f);
         g_soundTouchCall->putSamples(primeSilence.data(), (uint)primeSamples);
+        uint primeAvail = g_soundTouchCall->numSamples();
+        if (primeAvail > 0) {
+            std::vector<float> primeDrain(primeAvail * channels);
+            uint received = g_soundTouchCall->receiveSamples(primeDrain.data(), primeAvail);
+            if (received > 0) {
+                g_callFifo.insert(g_callFifo.end(), primeDrain.begin(), primeDrain.begin() + (received * channels));
+            }
+        }
     }
 
     int totalSamples = numSamples * channels;
@@ -974,50 +982,28 @@ void soundtouch_process_live_call_frame(short *samples, int numSamples, int chan
                 samples[i] = (short)val;
             }
         } else {
-            const float gain = 1.413f; // +3 dB clean broadcast boost
+            const float gain = 1.15f; // +1.2 dB clean broadcast presence
             for (int i = 0; i < totalSamples; ++i) {
                 float val = outBlock[i] * gain;
-                if (val > 32767.0f) val = 32767.0f;
-                else if (val < -32768.0f) val = -32768.0f;
+                if (val > 30000.0f) {
+                    val = 30000.0f + 2767.0f * tanhf((val - 30000.0f) / 2767.0f);
+                } else if (val < -30000.0f) {
+                    val = -30000.0f + 2768.0f * tanhf((val + 30000.0f) / 2768.0f);
+                }
                 samples[i] = (short)val;
             }
         }
     } else {
-        // Seamless fallback during initial pipeline buffering
-        for (int i = 0; i < numSamples; ++i) {
-            for (int ch = 0; ch < channels && ch < 2; ++ch) {
-                int idx = i * channels + ch;
-                float s = floatIn[idx];
-                s = g_callHpf.process(s, ch);
-                s = g_callWarmth.process(s, ch);
-                s = g_callDebox.process(s, ch);
-                s = g_callAir.process(s, ch);
-                floatIn[idx] = s;
-            }
-        }
-        if (g_compressorEnabled) {
-            g_callCompressor.processBuffer(floatIn.data(), numSamples, channels);
-            for (int i = 0; i < totalSamples; ++i) {
-                float val = floatIn[i];
-                if (val > 32767.0f) val = 32767.0f;
-                else if (val < -32768.0f) val = -32768.0f;
-                samples[i] = (short)val;
-            }
-        } else {
-            for (int i = 0; i < totalSamples; ++i) {
-                float val = floatIn[i] * 1.413f;
-                if (val > 32767.0f) val = 32767.0f;
-                else if (val < -32768.0f) val = -32768.0f;
-                samples[i] = (short)val;
-            }
-        }
+        // Underflow protection: NEVER leak raw unpitched microphone voice.
+        // Deliver pure silence to preserve the user's voice privacy and prevent comb filtering.
+        memset(samples, 0, totalSamples * sizeof(short));
     }
 
-    // Manage buffer drift to keep conversational latency below 60ms
-    int maxFifoSamples = ((sampleRate * 60) / 1000) * channels;
+    // Manage buffer drift to keep conversational latency below 120ms without cutting audio
+    int maxFifoSamples = ((sampleRate * 120) / 1000) * channels;
     if ((int)g_callFifo.size() > maxFifoSamples) {
         int excess = (int)g_callFifo.size() - maxFifoSamples;
-        if (excess > 4 * channels) excess = 4 * channels;
+        if (excess > 8 * channels) excess = 8 * channels;
         g_callFifo.erase(g_callFifo.begin(), g_callFifo.begin() + excess);
     }
 }

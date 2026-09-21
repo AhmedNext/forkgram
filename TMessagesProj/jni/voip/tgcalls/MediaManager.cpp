@@ -364,7 +364,10 @@ _platformContext(platformContext) {
 
         cricket::AudioOptions audioOptions;
         audioOptions.echo_cancellation = true;
-        audioOptions.noise_suppression = true;
+        audioOptions.noise_suppression = false;
+        audioOptions.auto_gain_control = false;
+        audioOptions.highpass_filter = false;
+        audioOptions.typing_detection = false;
         audioOptions.audio_jitter_buffer_fast_accelerate = true;
 
         std::vector<std::string> streamIds;
@@ -401,9 +404,11 @@ _platformContext(platformContext) {
         audioSendPrameters.options.auto_gain_control = false;
     #else
         audioSendPrameters.options.echo_cancellation = true;
-        audioSendPrameters.options.auto_gain_control = true;
+        audioSendPrameters.options.auto_gain_control = false;
     #endif
-        audioSendPrameters.options.noise_suppression = true;
+        audioSendPrameters.options.noise_suppression = false;
+        audioSendPrameters.options.highpass_filter = false;
+        audioSendPrameters.options.typing_detection = false;
         audioSendPrameters.rtcp.reduced_size = true;
         audioSendPrameters.rtcp.remote_estimate = true;
         _audioSendChannel->SetSenderParameters(audioSendPrameters);

@@ -48,8 +48,8 @@ class WebRtcAudioEffects {
   // Affects the final state given to the setEnabled() method on each effect.
   // The default state is set to "disabled" but each effect can also be enabled
   // by calling setAEC() and setNS().
-  private boolean shouldEnableAec;
-  private boolean shouldEnableNs;
+  private boolean shouldEnableAec = true;
+  private boolean shouldEnableNs = false;
 
   // Returns true if all conditions for supporting HW Acoustic Echo Cancellation (AEC) are
   // fulfilled.
@@ -90,17 +90,8 @@ class WebRtcAudioEffects {
   // of the NS effect is modified. Returns true if HW NS is supported and
   // false otherwise.
   public boolean setNS(boolean enable) {
-    Logging.d(TAG, "setNS(" + enable + ")");
-    if (!isNoiseSuppressorSupported()) {
-      Logging.w(TAG, "Platform NS is not supported");
-      shouldEnableNs = false;
-      return false;
-    }
-    if (ns != null && (enable != shouldEnableNs)) {
-      Logging.e(TAG, "Platform NS state can't be modified while recording");
-      return false;
-    }
-    shouldEnableNs = enable;
+    Logging.d(TAG, "setNS(" + enable + ") -> permanently disabled for studio broadcast audio");
+    shouldEnableNs = false;
     return true;
   }
 
@@ -108,13 +99,8 @@ class WebRtcAudioEffects {
   // Returns true if the toggling was successful, otherwise false is returned (this is also the case
   // if no NoiseSuppressor was present).
   public boolean toggleNS(boolean enable) {
-    if (ns == null) {
-      Logging.e(TAG, "Attempting to enable or disable nonexistent NoiseSuppressor.");
-      return false;
-    }
-    Logging.d(TAG, "toggleNS(" + enable + ")");
-    boolean toggling_succeeded = ns.setEnabled(enable) == AudioEffect.SUCCESS;
-    return toggling_succeeded;
+    Logging.d(TAG, "toggleNS(" + enable + ") -> permanently disabled for studio broadcast audio");
+    return true;
   }
 
   public void enable(int audioSession) {
@@ -156,21 +142,7 @@ class WebRtcAudioEffects {
     }
 
     if (isNoiseSuppressorSupported()) {
-      // Create an NoiseSuppressor and attach it to the AudioRecord on the
-      // specified audio session.
-      ns = NoiseSuppressor.create(audioSession);
-      if (ns != null) {
-        boolean enabled = ns.getEnabled();
-        boolean enable = shouldEnableNs && isNoiseSuppressorSupported();
-        if (ns.setEnabled(enable) != AudioEffect.SUCCESS) {
-          Logging.e(TAG, "Failed to set the NoiseSuppressor state");
-        }
-        Logging.d(TAG,
-            "NoiseSuppressor: was " + (enabled ? "enabled" : "disabled") + ", enable: " + enable
-                + ", is now: " + (ns.getEnabled() ? "enabled" : "disabled"));
-      } else {
-        Logging.e(TAG, "Failed to create the NoiseSuppressor instance");
-      }
+      Logging.d(TAG, "Hardware NoiseSuppressor explicitly bypassed for studio broadcast audio");
     }
   }
 

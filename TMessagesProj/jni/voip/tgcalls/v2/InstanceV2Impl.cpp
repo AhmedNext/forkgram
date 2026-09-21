@@ -140,19 +140,12 @@ public:
     _channelManager(channelManager),
     _audioSource(audioSource) {
         cricket::AudioOptions audioOptions;
-        bool _disableOutgoingAudioProcessing = false;
-
-        if (_disableOutgoingAudioProcessing) {
-            audioOptions.echo_cancellation = false;
-            audioOptions.noise_suppression = false;
-            audioOptions.auto_gain_control = false;
-            audioOptions.highpass_filter = false;
-            //audioOptions.typing_detection = false;
-            //audioOptions.residual_echo_detector = false;
-        } else {
-            audioOptions.echo_cancellation = true;
-            audioOptions.noise_suppression = true;
-        }
+        audioOptions.echo_cancellation = true;
+        audioOptions.noise_suppression = false;
+        audioOptions.auto_gain_control = false;
+        audioOptions.highpass_filter = false;
+        audioOptions.typing_detection = false;
+        audioOptions.residual_echo_detector = false;
 
         const auto contentId = std::to_string(_ssrc);
 

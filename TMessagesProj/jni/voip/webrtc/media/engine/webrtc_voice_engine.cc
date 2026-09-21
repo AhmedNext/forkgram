@@ -428,14 +428,9 @@ void WebRtcVoiceEngine::Init() {
   {
     AudioOptions options;
     options.echo_cancellation = true;
-    options.auto_gain_control = true;
-#if defined(WEBRTC_IOS)
-    // On iOS, VPIO provides built-in NS.
+    options.auto_gain_control = false;
     options.noise_suppression = false;
-#else
-    options.noise_suppression = true;
-#endif
-    options.highpass_filter = true;
+    options.highpass_filter = false;
     options.stereo_swapping = false;
     options.audio_jitter_buffer_max_packets = 200;
     options.audio_jitter_buffer_fast_accelerate = false;
@@ -547,32 +542,15 @@ void WebRtcVoiceEngine::ApplyOptions(const AudioOptions& options_in) {
     }
   }
 
-  if (options.auto_gain_control) {
-    bool built_in_agc_avaliable = adm()->BuiltInAGCIsAvailable();
-    if (built_in_agc_avaliable) {
-      if (adm()->EnableBuiltInAGC(*options.auto_gain_control) == 0 &&
-          *options.auto_gain_control) {
-        // Disable internal software AGC if built-in AGC is enabled,
-        // i.e., replace the software AGC with the built-in AGC.
-        options.auto_gain_control = false;
-        RTC_LOG(LS_INFO)
-            << "Disabling AGC since built-in AGC will be used instead";
-      }
-    }
+  if (adm()->BuiltInAGCIsAvailable()) {
+    adm()->EnableBuiltInAGC(false);
   }
+  options.auto_gain_control = false;
 
-  if (options.noise_suppression) {
-    if (adm()->BuiltInNSIsAvailable()) {
-      bool builtin_ns = *options.noise_suppression;
-      if (adm()->EnableBuiltInNS(builtin_ns) == 0 && builtin_ns) {
-        // Disable internal software NS if built-in NS is enabled,
-        // i.e., replace the software NS with the built-in NS.
-        options.noise_suppression = false;
-        RTC_LOG(LS_INFO)
-            << "Disabling NS since built-in NS will be used instead";
-      }
-    }
+  if (adm()->BuiltInNSIsAvailable()) {
+    adm()->EnableBuiltInNS(false);
   }
+  options.noise_suppression = false;
 
   if (options.stereo_swapping) {
     audio_state()->SetStereoChannelSwapping(*options.stereo_swapping);
@@ -603,27 +581,12 @@ void WebRtcVoiceEngine::ApplyOptions(const AudioOptions& options_in) {
     apm_config.echo_canceller.mobile_mode = use_mobile_software_aec;
   }
 
-  if (options.auto_gain_control) {
-    const bool enabled = *options.auto_gain_control;
-    apm_config.gain_controller1.enabled = enabled;
-#if defined(WEBRTC_IOS) || defined(WEBRTC_ANDROID)
-    apm_config.gain_controller1.mode =
-        apm_config.gain_controller1.kFixedDigital;
-#else
-    apm_config.gain_controller1.mode =
-        apm_config.gain_controller1.kAdaptiveAnalog;
-#endif
-  }
-
-  if (options.highpass_filter) {
-    apm_config.high_pass_filter.enabled = *options.highpass_filter;
-  }
-
-  if (options.noise_suppression) {
-    apm_config.noise_suppression.enabled = false;
-    apm_config.noise_suppression.level =
-        webrtc::AudioProcessing::Config::NoiseSuppression::Level::kHigh;
-  }
+  // Explicitly disable all suppression, AGC pumping, and highpass filtering
+  apm_config.gain_controller1.enabled = false;
+  apm_config.gain_controller2.enabled = false;
+  apm_config.high_pass_filter.enabled = false;
+  apm_config.noise_suppression.enabled = false;
+  apm_config.transient_suppression.enabled = false;
 
   ap->ApplyConfig(apm_config);
 }

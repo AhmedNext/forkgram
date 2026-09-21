@@ -752,7 +752,11 @@ void soundtouch_init_recorder(int sampleRate, float pitchSemitones) {
     g_soundTouchRecorder->setPitchSemiTones(pitchSemitones);
     g_soundTouchRecorder->setTempo(1.0f); // Normal speed
     g_soundTouchRecorder->setSetting(SETTING_USE_AA_FILTER, 1);
+    g_soundTouchRecorder->setSetting(SETTING_AA_FILTER_LENGTH, 128);
     g_soundTouchRecorder->setSetting(SETTING_USE_QUICKSEEK, 0);
+    g_soundTouchRecorder->setSetting(SETTING_SEQUENCE_MS, 100);
+    g_soundTouchRecorder->setSetting(SETTING_SEEKWINDOW_MS, 35);
+    g_soundTouchRecorder->setSetting(SETTING_OVERLAP_MS, 18);
 
     // Configure 4-band Studio Vocal EQ according to selected Preset
     apply_vocal_preset(g_vocalPreset, (float)sampleRate, g_recorderHpf, g_recorderWarmth, g_recorderDebox, g_recorderAir, g_recorderCompressor);
@@ -905,11 +909,12 @@ void soundtouch_process_live_call_frame(short *samples, int numSamples, int chan
         g_soundTouchCall->setPitchSemiTones(pitchSemitones);
         g_soundTouchCall->setTempo(1.0f);
 
-        // Studio-grade pitch shifting parameters tailored for crystal clear VoIP
-        g_soundTouchCall->setSetting(SETTING_SEQUENCE_MS, 40);
-        g_soundTouchCall->setSetting(SETTING_SEEKWINDOW_MS, 15);
-        g_soundTouchCall->setSetting(SETTING_OVERLAP_MS, 8);
+        // Studio-grade pitch shifting parameters requested by user (Seq=100ms, Seek=35ms, Overlap=18ms, AA=128t, QS=0)
+        g_soundTouchCall->setSetting(SETTING_SEQUENCE_MS, 100);
+        g_soundTouchCall->setSetting(SETTING_SEEKWINDOW_MS, 35);
+        g_soundTouchCall->setSetting(SETTING_OVERLAP_MS, 18);
         g_soundTouchCall->setSetting(SETTING_USE_AA_FILTER, 1);
+        g_soundTouchCall->setSetting(SETTING_AA_FILTER_LENGTH, 128);
         g_soundTouchCall->setSetting(SETTING_USE_QUICKSEEK, 0); // 0 = Full precision cross-correlation (Studio Broadcast Quality, NO metallic artifacts)
 
         // Configure Vocal EQ Filters according to selected preset
@@ -922,8 +927,8 @@ void soundtouch_process_live_call_frame(short *samples, int numSamples, int chan
 
         g_callFifo.clear();
 
-        // Prime pipeline with low-latency silence and drain immediately into FIFO
-        int primeSamples = (sampleRate * 80) / 1000;
+        // Prime pipeline with silence to satisfy 100ms+35ms SoundTouch requirement and drain immediately into FIFO
+        int primeSamples = (sampleRate * 160) / 1000;
         std::vector<float> primeSilence(primeSamples * channels, 0.0f);
         g_soundTouchCall->putSamples(primeSilence.data(), (uint)primeSamples);
         uint primeAvail = g_soundTouchCall->numSamples();
@@ -999,8 +1004,8 @@ void soundtouch_process_live_call_frame(short *samples, int numSamples, int chan
         memset(samples, 0, totalSamples * sizeof(short));
     }
 
-    // Manage buffer drift to keep conversational latency below 120ms without cutting audio
-    int maxFifoSamples = ((sampleRate * 120) / 1000) * channels;
+    // Manage buffer drift to keep conversational latency bounded without cutting audio
+    int maxFifoSamples = ((sampleRate * 200) / 1000) * channels;
     if ((int)g_callFifo.size() > maxFifoSamples) {
         int excess = (int)g_callFifo.size() - maxFifoSamples;
         if (excess > 8 * channels) excess = 8 * channels;
@@ -1089,9 +1094,13 @@ void soundtouch_process_video_note_frame(short *samples, int numSamples, int cha
         g_soundTouchVideoNote->setPitchSemiTones(pitchSemitones);
         g_soundTouchVideoNote->setTempo(1.0f);
 
-        // Maximum quality settings matching voice notes
+        // Maximum quality settings matching user preference (Seq=100, Seek=35, Overlap=18, AA=128t, QS=0)
         g_soundTouchVideoNote->setSetting(SETTING_USE_AA_FILTER, 1);
+        g_soundTouchVideoNote->setSetting(SETTING_AA_FILTER_LENGTH, 128);
         g_soundTouchVideoNote->setSetting(SETTING_USE_QUICKSEEK, 0);
+        g_soundTouchVideoNote->setSetting(SETTING_SEQUENCE_MS, 100);
+        g_soundTouchVideoNote->setSetting(SETTING_SEEKWINDOW_MS, 35);
+        g_soundTouchVideoNote->setSetting(SETTING_OVERLAP_MS, 18);
 
         // Configure 4-Band Studio Vocal EQ according to selected preset
         apply_vocal_preset(g_vocalPreset, (float)sampleRate, g_vnHpf, g_vnWarmth, g_vnDebox, g_vnAir, g_vnCompressor);
@@ -1104,7 +1113,7 @@ void soundtouch_process_video_note_frame(short *samples, int numSamples, int cha
         // Pre-prime with initial latency silence so output never starves on first frame (keeps AV sync)
         int initialLatency = (int)g_soundTouchVideoNote->getSetting(SETTING_INITIAL_LATENCY);
         if (initialLatency <= 0) {
-            initialLatency = (sampleRate * 80) / 1000;
+            initialLatency = (sampleRate * 160) / 1000;
         }
         std::vector<float> silence(initialLatency * channels, 0.0f);
         g_soundTouchVideoNote->putSamples(silence.data(), (uint)initialLatency);
@@ -1159,7 +1168,7 @@ void soundtouch_process_video_note_frame(short *samples, int numSamples, int cha
 
     // Manage buffer drift to keep audio-video sync exact
     uint curAvailable = g_soundTouchVideoNote->numSamples();
-    uint maxAllowedBuffer = (uint)((sampleRate * 120) / 1000);
+    uint maxAllowedBuffer = (uint)((sampleRate * 200) / 1000);
     if (curAvailable > maxAllowedBuffer + (uint)numSamples) {
         uint excess = curAvailable - maxAllowedBuffer;
         if (excess > 48) excess = 48; // drain max 1ms per frame

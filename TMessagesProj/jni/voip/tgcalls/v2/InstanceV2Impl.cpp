@@ -144,8 +144,6 @@ public:
         audioOptions.noise_suppression = false;
         audioOptions.auto_gain_control = false;
         audioOptions.highpass_filter = false;
-        audioOptions.typing_detection = false;
-        audioOptions.residual_echo_detector = false;
 
         const auto contentId = std::to_string(_ssrc);
 

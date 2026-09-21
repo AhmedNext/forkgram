@@ -1,0 +1,5 @@
+output/
+*.wav
+*.pcm
+test_sample.mp3
+__pycache__/

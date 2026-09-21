@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-SoundTouch Tuning Lab: 10 Parameter Variations Tester
-Processes a single MP3 input file into 10 distinct MP3 files,
-all shifted to -2.3 semitones with different SoundTouch and Telegram vocal DSP settings.
+SoundTouch Pure Speech Tuning Lab: 10 Parameter Variations Tester
+Pure SoundTouch algorithmic parameters ONLY.
+NO EQ, NO COMPRESSION.
+All 10 variations pitch-shifted to -2.3 semitones for human speech & voice notes.
 """
 
 import os
@@ -11,201 +12,194 @@ import argparse
 import time
 from soundtouch_engine import (
     SoundTouchDLL,
-    apply_vocal_chain,
     load_audio_as_pcm,
     save_pcm_as_mp3
 )
 
-# 10 Curated Variations exploring SoundTouch parameters & Telegram vocal DSP
+# 10 Pure SoundTouch Variations Specifically Tuned for Speaking Voice & Voice Notes
 VARIATIONS = [
     {
         "id": "01",
-        "name": "01_Studio_Speech_Pure",
-        "title": "01: Pure Studio Speech (Flat Reference)",
-        "description": "Full Precision WSOLA, Anti-Alias ON, Clean Uncolored Voice (No EQ, No Tube)",
+        "name": "01_Standard_Speech_Baseline",
+        "title": "01: Standard Speech Baseline (Recommended Standard)",
+        "description": "Sequence: 40ms | Seek: 15ms | Overlap: 8ms | QuickSeek: OFF | Anti-Alias: ON (64 taps)",
         "pitch": -2.3,
         "sequence_ms": 40,
         "seekwindow_ms": 15,
         "overlap_ms": 8,
         "quickseek": 0,
         "aa_filter": 1,
-        "preset_id": None,
-        "compressor": False,
-        "listening_notes": "Optimal clean baseline. Natural vocal formants, zero coloration, zero metallic phasing. Use as reference."
+        "aa_filter_length": 64,
+        "listening_notes": "The official SoundTouch speech baseline with full precision. Balanced natural blend of vowels and consonants. Your primary reference track."
     },
     {
         "id": "02",
-        "name": "02_Radio_Broadcaster_EQ",
-        "title": "02: Radio Broadcaster (Telegram Default EQ)",
-        "description": "Telegram Broadcaster Profile (+4dB @ 125Hz, +2.5dB Air @ 9kHz, Boxiness cut @ 400Hz)",
+        "name": "02_Deep_Male_Voice_Optimized",
+        "title": "02: Deep Male Voice Optimized",
+        "description": "Sequence: 48ms | Seek: 20ms | Overlap: 10ms | QuickSeek: OFF | Anti-Alias: ON (64 taps)",
         "pitch": -2.3,
-        "sequence_ms": 40,
-        "seekwindow_ms": 15,
-        "overlap_ms": 8,
+        "sequence_ms": 48,
+        "seekwindow_ms": 20,
+        "overlap_ms": 10,
         "quickseek": 0,
         "aa_filter": 1,
-        "preset_id": 0,
-        "compressor": False,
-        "listening_notes": "Deep masculine chest warmth with condenser mic presence. Removes muddy room reverberation."
+        "aa_filter_length": 64,
+        "listening_notes": "Tailored for low male fundamental frequencies (85-110 Hz). Longer seek window (20ms) tracks deep chest resonance without phase cancellation or flutter."
     },
     {
         "id": "03",
-        "name": "03_Warm_Velvet_Podcast",
-        "title": "03: Warm Velvet / Podcast Preset",
-        "description": "Podcast Profile (+2.8dB @ 140Hz, Gentle Highs @ 8.5kHz, Low Cut @ 70Hz)",
+        "name": "03_Ultra_Smooth_Vowels",
+        "title": "03: Ultra Smooth Vowels",
+        "description": "Sequence: 56ms | Seek: 18ms | Overlap: 12ms | QuickSeek: OFF | Anti-Alias: ON (64 taps)",
         "pitch": -2.3,
-        "sequence_ms": 40,
-        "seekwindow_ms": 15,
-        "overlap_ms": 8,
-        "quickseek": 0,
-        "aa_filter": 1,
-        "preset_id": 1,
-        "compressor": False,
-        "listening_notes": "Intimate podcast warmth with softer, non-fatiguing treble roll-off. Ideal for close-mic voices."
-    },
-    {
-        "id": "04",
-        "name": "04_Studio_Crystal_Clarity",
-        "title": "04: Studio Crystal Clarity Preset",
-        "description": "Crystal Profile (+3.5dB High Air @ 10kHz, Tight Lows @ 110Hz, Deep Boxiness Cut @ 380Hz)",
-        "pitch": -2.3,
-        "sequence_ms": 40,
-        "seekwindow_ms": 15,
-        "overlap_ms": 8,
-        "quickseek": 0,
-        "aa_filter": 1,
-        "preset_id": 2,
-        "compressor": False,
-        "listening_notes": "Razor-sharp consonant articulation and ultra-crisp highs. Great for cutting through ambient noise."
-    },
-    {
-        "id": "05",
-        "name": "05_Cinematic_Deep_Resonance",
-        "title": "05: Cinematic Deep Resonance Preset",
-        "description": "Cinematic Profile (+5.0dB Heavy Sub-Warmth @ 95Hz, Low HPF @ 60Hz)",
-        "pitch": -2.3,
-        "sequence_ms": 40,
-        "seekwindow_ms": 15,
-        "overlap_ms": 8,
-        "quickseek": 0,
-        "aa_filter": 1,
-        "preset_id": 3,
-        "compressor": False,
-        "listening_notes": "Movie-trailer baritone presence. Maximum low-frequency fullness and commanding vocal weight."
-    },
-    {
-        "id": "06",
-        "name": "06_Broadcast_Tube_Saturation",
-        "title": "06: Radio EQ + Analog Tube Saturation",
-        "description": "Radio Broadcaster EQ + Soft-Knee Compressor & Triode Tube 2nd-Order Harmonics",
-        "pitch": -2.3,
-        "sequence_ms": 40,
-        "seekwindow_ms": 15,
-        "overlap_ms": 8,
-        "quickseek": 0,
-        "aa_filter": 1,
-        "preset_id": 0,
-        "compressor": True,
-        "listening_notes": "Simulates speaking through a vintage analog vacuum-tube preamp. Rich even harmonics and volume leveling."
-    },
-    {
-        "id": "07",
-        "name": "07_Extended_Sequence_Smooth",
-        "title": "07: Extended Sequence Window (Long WSOLA)",
-        "description": "Sequence: 60ms, Seek Window: 20ms, Overlap: 12ms (Clean Flat EQ)",
-        "pitch": -2.3,
-        "sequence_ms": 60,
-        "seekwindow_ms": 20,
+        "sequence_ms": 56,
+        "seekwindow_ms": 18,
         "overlap_ms": 12,
         "quickseek": 0,
         "aa_filter": 1,
-        "preset_id": None,
-        "compressor": False,
-        "listening_notes": "Wider correlation window. Eliminates any pitch flutter or micro-warble on long, sustained vowels."
+        "aa_filter_length": 64,
+        "listening_notes": "Extended sequence (56ms) and wider overlap (12ms). Completely eliminates any micro-buzz or robotic flutter on sustained vowels (like 'ah', 'oh', 'ee')."
     },
     {
-        "id": "08",
-        "name": "08_Short_Sequence_Fast_Speech",
-        "title": "08: Short Sequence Window (Snappy WSOLA)",
-        "description": "Sequence: 28ms, Seek Window: 12ms, Overlap: 6ms (Clean Flat EQ)",
+        "id": "04",
+        "name": "04_Crisp_Fast_Consonants",
+        "title": "04: Crisp Fast Consonants (Snappy Plosives)",
+        "description": "Sequence: 28ms | Seek: 12ms | Overlap: 6ms | QuickSeek: OFF | Anti-Alias: ON (32 taps)",
         "pitch": -2.3,
         "sequence_ms": 28,
         "seekwindow_ms": 12,
         "overlap_ms": 6,
         "quickseek": 0,
         "aa_filter": 1,
-        "preset_id": None,
-        "compressor": False,
-        "listening_notes": "Tighter correlation slices. Highly responsive to rapid speech, fast consonants, and fast cadence."
+        "aa_filter_length": 32,
+        "listening_notes": "Short 28ms correlation slices. Keeps fast consonants ('p', 't', 'k', 's') razor-sharp with immediate response. Best for fast talkers."
     },
     {
-        "id": "09",
-        "name": "09_QuickSeek_Comparison",
-        "title": "09: QuickSeek Algorithmic (Coarse Search)",
-        "description": "QuickSeek = 1 (Approximation Algorithm, Sequence: 40ms, Anti-Alias: ON)",
+        "id": "05",
+        "name": "05_Natural_Conversational",
+        "title": "05: Natural Conversational Voice",
+        "description": "Sequence: 35ms | Seek: 14ms | Overlap: 8ms | QuickSeek: OFF | Anti-Alias: ON (48 taps)",
+        "pitch": -2.3,
+        "sequence_ms": 35,
+        "seekwindow_ms": 14,
+        "overlap_ms": 8,
+        "quickseek": 0,
+        "aa_filter": 1,
+        "aa_filter_length": 48,
+        "listening_notes": "Slightly tighter sequence (35ms) tuned specifically for everyday voice notes and natural conversational rhythm."
+    },
+    {
+        "id": "06",
+        "name": "06_High_Precision_AntiAlias_128",
+        "title": "06: High Precision Anti-Alias (128-Tap FIR)",
+        "description": "Sequence: 40ms | Seek: 15ms | Overlap: 8ms | QuickSeek: OFF | Anti-Alias: ON (128 taps)",
         "pitch": -2.3,
         "sequence_ms": 40,
         "seekwindow_ms": 15,
         "overlap_ms": 8,
-        "quickseek": 1,
+        "quickseek": 0,
         "aa_filter": 1,
-        "preset_id": None,
-        "compressor": False,
-        "listening_notes": "Enable QuickSeek to compare directly against Full Precision (Var 01). Notice the difference in roughness."
+        "aa_filter_length": 128,
+        "listening_notes": "Maximum 128-tap FIR filter resolution. Eliminates high-frequency spectral foldover, delivering silky smooth top-end clarity."
     },
     {
-        "id": "10",
-        "name": "10_Raw_AntiAlias_Bypass",
-        "title": "10: Raw Anti-Alias Bypass (Unfiltered)",
-        "description": "Anti-Aliasing Filter OFF (AA = 0, Sequence: 40ms, Full Precision)",
+        "id": "07",
+        "name": "07_Raw_AntiAlias_Bypass",
+        "title": "07: Raw Anti-Alias Bypass (Unfiltered Highs)",
+        "description": "Sequence: 40ms | Seek: 15ms | Overlap: 8ms | QuickSeek: OFF | Anti-Alias: OFF",
         "pitch": -2.3,
         "sequence_ms": 40,
         "seekwindow_ms": 15,
         "overlap_ms": 8,
         "quickseek": 0,
         "aa_filter": 0,
-        "preset_id": None,
-        "compressor": False,
-        "listening_notes": "Bypasses the anti-aliasing filter to allow raw unfiltered high-frequency edge and brightness."
+        "aa_filter_length": 0,
+        "listening_notes": "Anti-aliasing filter completely bypassed. Preserves raw unfiltered vocal breath, acoustic presence, and crisp edge."
+    },
+    {
+        "id": "08",
+        "name": "08_Wide_Overlap_Air",
+        "title": "08: Wide Overlap Air (Soft Crossfade)",
+        "description": "Sequence: 44ms | Seek: 16ms | Overlap: 14ms | QuickSeek: OFF | Anti-Alias: ON (64 taps)",
+        "pitch": -2.3,
+        "sequence_ms": 44,
+        "seekwindow_ms": 16,
+        "overlap_ms": 14,
+        "quickseek": 0,
+        "aa_filter": 1,
+        "aa_filter_length": 64,
+        "listening_notes": "Deep 14ms crossfade blending across window boundaries. Gives a softer, mellow spoken tone with zero rough slice edges."
+    },
+    {
+        "id": "09",
+        "name": "09_Punchy_Transient_Short_Overlap",
+        "title": "09: Punchy Transients (Dry Attack)",
+        "description": "Sequence: 38ms | Seek: 15ms | Overlap: 5ms | QuickSeek: OFF | Anti-Alias: ON (32 taps)",
+        "pitch": -2.3,
+        "sequence_ms": 38,
+        "seekwindow_ms": 15,
+        "overlap_ms": 5,
+        "quickseek": 0,
+        "aa_filter": 1,
+        "aa_filter_length": 32,
+        "listening_notes": "Short 5ms crossfade. Preserves maximum acoustic punch and direct punchy transient impact."
+    },
+    {
+        "id": "10",
+        "name": "10_QuickSeek_Coarse_Comparison",
+        "title": "10: QuickSeek Coarse Approximation",
+        "description": "Sequence: 40ms | Seek: 15ms | Overlap: 8ms | QuickSeek: ON (Decimated) | Anti-Alias: ON",
+        "pitch": -2.3,
+        "sequence_ms": 40,
+        "seekwindow_ms": 15,
+        "overlap_ms": 8,
+        "quickseek": 1,
+        "aa_filter": 1,
+        "aa_filter_length": 64,
+        "listening_notes": "Enables QuickSeek coarse search approximation. Compare directly against Track 01 to hear how coarse correlation sounds on speech."
     }
 ]
 
 
 def generate_html_player(output_dir, base_input_name):
     """
-    Generates a modern, interactive A/B comparison HTML player in the output folder.
+    Generates an interactive A/B comparison HTML player in the output folder.
     """
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SoundTouch Tuning Lab - 10 Variations Comparison</title>
+<title>SoundTouch Speech Variations Lab - A/B Player</title>
 <style>
     body {{
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        background: #0f172a;
+        background: #090d16;
         color: #f8fafc;
         margin: 0;
         padding: 24px;
     }}
     .container {{
-        max-width: 960px;
+        max-width: 980px;
         margin: 0 auto;
     }}
     h1 {{
         color: #38bdf8;
         font-size: 28px;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
     }}
     .subtitle {{
         color: #94a3b8;
-        font-size: 15px;
-        margin-bottom: 24px;
+        font-size: 14.5px;
+        margin-bottom: 22px;
+    }}
+    .highlight {{
+        color: #38bdf8;
+        font-weight: 600;
     }}
     .global-bar {{
-        background: #1e293b;
-        border: 1px solid #334155;
+        background: #151f32;
+        border: 1px solid #1e293b;
         border-radius: 12px;
         padding: 16px 20px;
         margin-bottom: 24px;
@@ -215,14 +209,14 @@ def generate_html_player(output_dir, base_input_name):
         position: sticky;
         top: 16px;
         z-index: 100;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.6);
     }}
     .global-bar button {{
         background: #38bdf8;
-        color: #0f172a;
+        color: #090d16;
         font-weight: 700;
         border: none;
-        padding: 10px 18px;
+        padding: 10px 20px;
         border-radius: 8px;
         cursor: pointer;
         transition: all 0.15s;
@@ -232,25 +226,25 @@ def generate_html_player(output_dir, base_input_name):
         transform: translateY(-1px);
     }}
     .sync-info {{
-        color: #cbd5e1;
+        color: #e2e8f0;
         font-size: 14px;
         flex: 1;
     }}
     .card {{
-        background: #1e293b;
-        border: 1px solid #334155;
+        background: #111a2e;
+        border: 1px solid #1e293b;
         border-radius: 12px;
         padding: 18px 20px;
-        margin-bottom: 16px;
-        transition: border-color 0.2s;
+        margin-bottom: 14px;
+        transition: border-color 0.2s, background 0.2s;
     }}
     .card:hover {{
         border-color: #38bdf8;
     }}
     .card.active {{
         border-color: #38bdf8;
-        background: #1e2e4a;
-        box-shadow: 0 0 16px rgba(56, 189, 248, 0.2);
+        background: #142442;
+        box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
     }}
     .card-header {{
         display: flex;
@@ -283,8 +277,8 @@ def generate_html_player(output_dir, base_input_name):
     .card-notes {{
         color: #cbd5e1;
         font-size: 13px;
-        background: #0f172a;
-        padding: 8px 12px;
+        background: #090d16;
+        padding: 9px 12px;
         border-radius: 6px;
         margin-bottom: 12px;
         border-left: 3px solid #38bdf8;
@@ -293,17 +287,17 @@ def generate_html_player(output_dir, base_input_name):
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
         gap: 8px;
-        margin-bottom: 14px;
+        margin-bottom: 12px;
         font-size: 12px;
-        color: #64748b;
     }}
     .param-item {{
-        background: #0f172a;
+        background: #090d16;
         padding: 6px 10px;
         border-radius: 6px;
+        color: #64748b;
     }}
     .param-item strong {{
-        color: #94a3b8;
+        color: #cbd5e1;
     }}
     audio {{
         width: 100%;
@@ -314,12 +308,12 @@ def generate_html_player(output_dir, base_input_name):
 </head>
 <body>
 <div class="container">
-    <h1>SoundTouch Tuning Lab</h1>
-    <div class="subtitle">Comparing 10 Variations from <strong>{base_input_name}</strong> | Constant Pitch: -2.3 Semitones</div>
+    <h1>SoundTouch Speech Variations Lab</h1>
+    <div class="subtitle">Comparing 10 Pure SoundTouch Speech Variations from <span class="highlight">{base_input_name}</span> | Fixed Pitch: <span class="highlight">-2.3 Semitones</span> (NO EQ, NO Compression)</div>
 
     <div class="global-bar">
         <button onclick="stopAll()">Stop All</button>
-        <div class="sync-info" id="statusText">Select any track to listen. Switching maintains playback position for easy A/B testing!</div>
+        <div class="sync-info" id="statusText">Click play on any track. Switching preserves the exact playhead position for instant A/B testing!</div>
     </div>
 
     <div class="cards-list">
@@ -327,11 +321,10 @@ def generate_html_player(output_dir, base_input_name):
 
     for var in VARIATIONS:
         fname = f"{var['name']}.mp3"
-        badge_class = "recommended" if var["id"] in ["01", "02", "06"] else ""
-        badge_text = "RECOMMENDED" if var["id"] in ["01", "02", "06"] else f"VARIATION {var['id']}"
-        eq_text = f"Preset {var['preset_id']}" if var["preset_id"] is not None else "Clean Flat"
-        comp_text = "ON (Tube Sat)" if var["compressor"] else "Clean Boost"
-        
+        badge_class = "recommended" if var["id"] in ["01", "02", "05"] else ""
+        badge_text = "TOP PICK" if var["id"] in ["01", "02", "05"] else f"TRACK {var['id']}"
+        aa_text = f"ON ({var['aa_filter_length']} taps)" if var["aa_filter"] else "OFF (Bypass)"
+
         html_content += f"""
         <div class="card" id="card-{var['id']}">
             <div class="card-header">
@@ -345,9 +338,7 @@ def generate_html_player(output_dir, base_input_name):
                 <div class="param-item"><strong>Seek:</strong> {var['seekwindow_ms']}ms</div>
                 <div class="param-item"><strong>Overlap:</strong> {var['overlap_ms']}ms</div>
                 <div class="param-item"><strong>QuickSeek:</strong> {'ON' if var['quickseek'] else 'OFF'}</div>
-                <div class="param-item"><strong>Anti-Alias:</strong> {'ON' if var['aa_filter'] else 'OFF'}</div>
-                <div class="param-item"><strong>Vocal EQ:</strong> {eq_text}</div>
-                <div class="param-item"><strong>Tube Comp:</strong> {comp_text}</div>
+                <div class="param-item"><strong>Anti-Alias:</strong> {aa_text}</div>
             </div>
             <audio id="audio-{var['id']}" controls src="{fname}" onplay="onAudioPlay('{var['id']}')"></audio>
         </div>
@@ -358,12 +349,10 @@ def generate_html_player(output_dir, base_input_name):
 </div>
 
 <script>
-    let currentActiveId = null;
-
     function stopAll() {
         document.querySelectorAll('audio').forEach(a => a.pause());
         document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
-        document.getElementById('statusText').innerText = "All playback stopped.";
+        document.getElementById('statusText').innerText = "Playback stopped.";
     }
 
     function onAudioPlay(id) {
@@ -394,47 +383,45 @@ def generate_markdown_guide(output_dir, base_input_name):
     Generates a detailed summary markdown and text file mapping all variations.
     """
     lines = [
-        "# SoundTouch Tuning Lab: 10 Audio Variations Map",
-        f"Generated from input: `{base_input_name}`",
-        "All variations share the constant user pitch shift: **-2.3 semitones**.",
+        "# SoundTouch Speech Variations Map (10 Audio Tracks)",
+        f"Input source: `{base_input_name}`",
+        "Constant pitch shift: **-2.3 semitones** | **PURE SOUNDTOUCH ONLY (NO EQ, NO COMPRESSION)**",
         "",
         "---",
         "",
-        "## Summary Table",
+        "## Comparison Table",
         "",
-        "| File | SoundTouch Parameters | Telegram EQ & Dynamics | Sonic Character |",
-        "|---|---|---|---|",
+        "| Track | File Name | Sequence | Seek | Overlap | QuickSeek | Anti-Alias | What to Listen For |",
+        "|---|---|---|---|---|---|---|---|",
     ]
 
     for v in VARIATIONS:
-        eq_name = f"Preset {v['preset_id']}" if v['preset_id'] is not None else "Clean Flat"
-        comp_name = "+ Tube Saturation" if v['compressor'] else "Clean Boost"
-        st_summary = f"Seq={v['sequence_ms']}ms, Seek={v['seekwindow_ms']}ms, Overlap={v['overlap_ms']}ms, QS={v['quickseek']}, AA={v['aa_filter']}"
-        lines.append(f"| **`{v['name']}.mp3`** | `{st_summary}` | `{eq_name} {comp_name}` | {v['listening_notes']} |")
+        aa_text = f"ON ({v['aa_filter_length']}t)" if v['aa_filter'] else "OFF"
+        qs_text = "ON" if v['quickseek'] else "OFF"
+        lines.append(f"| **{v['id']}** | **`{v['name']}.mp3`** | `{v['sequence_ms']}ms` | `{v['seekwindow_ms']}ms` | `{v['overlap_ms']}ms` | `{qs_text}` | `{aa_text}` | {v['listening_notes']} |")
 
     lines.extend([
         "",
         "---",
         "",
-        "## Detailed Breakdown by Variation",
+        "## Detailed Parameter Descriptions & Acoustic Targets",
         ""
     ])
 
     for v in VARIATIONS:
+        aa_desc = f"Enabled ({v['aa_filter_length']}-tap FIR filter)" if v['aa_filter'] else "Disabled (Raw Unfiltered Highs)"
+        qs_desc = "Enabled (Coarse Correlation Search)" if v['quickseek'] else "Disabled (Full Precision Cross-Correlation)"
         lines.extend([
-            f"### {v['title']}",
+            f"### Track {v['id']}: {v['title']}",
             f"- **Filename**: `{v['name']}.mp3`",
             f"- **Pitch Shift**: `{v['pitch']}` semitones",
-            f"- **SoundTouch Settings**:",
-            f"  - `SETTING_SEQUENCE_MS`: `{v['sequence_ms']}` ms",
-            f"  - `SETTING_SEEKWINDOW_MS`: `{v['seekwindow_ms']}` ms",
-            f"  - `SETTING_OVERLAP_MS`: `{v['overlap_ms']}` ms",
-            f"  - `SETTING_USE_QUICKSEEK`: `{v['quickseek']}` ({'Quick Approximation' if v['quickseek'] else 'Full Precision Cross-Correlation'})",
-            f"  - `SETTING_USE_AA_FILTER`: `{v['aa_filter']}` ({'Anti-Aliasing Filter ON' if v['aa_filter'] else 'OFF'})",
-            f"- **Telegram Audio Processing**:",
-            f"  - **Vocal EQ Preset**: `{v['preset_id']}`",
-            f"  - **Analog Tube Compressor**: `{'Enabled' if v['compressor'] else 'Disabled'}`",
-            f"- **Why this variation**: {v['listening_notes']}",
+            f"- **Parameters**:",
+            f"  - `SETTING_SEQUENCE_MS` = `{v['sequence_ms']}` ms",
+            f"  - `SETTING_SEEKWINDOW_MS` = `{v['seekwindow_ms']}` ms",
+            f"  - `SETTING_OVERLAP_MS` = `{v['overlap_ms']}` ms",
+            f"  - `SETTING_USE_QUICKSEEK` = `{v['quickseek']}` ({qs_desc})",
+            f"  - `SETTING_USE_AA_FILTER` = `{v['aa_filter']}` ({aa_desc})",
+            f"- **Acoustic Focus**: {v['listening_notes']}",
             ""
         ])
 
@@ -442,15 +429,14 @@ def generate_markdown_guide(output_dir, base_input_name):
     with open(guide_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
-    # Also save as clean plain-text for quick notepad viewing
     txt_path = os.path.join(output_dir, "VARIATIONS_GUIDE.txt")
     with open(txt_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Process 1 MP3 into 10 SoundTouch variations (-2.3 semitones).")
-    parser.add_argument("input_file", nargs="?", default=None, help="Path to input MP3/audio file")
+    parser = argparse.ArgumentParser(description="Convert 1 MP3 into 10 Pure SoundTouch Speech Variations (-2.3 semitones).")
+    parser.add_argument("input_file", nargs="?", default=None, help="Path to input MP3 file")
     parser.add_argument("--output_dir", "-o", default=None, help="Directory to save the 10 MP3s")
     args = parser.parse_args()
 
@@ -458,50 +444,49 @@ def main():
     input_file = args.input_file
 
     if not input_file:
-        # Check if an mp3 is placed in the script folder
         mp3s_in_dir = [f for f in os.listdir(script_dir) if f.lower().endswith(".mp3")]
         if mp3s_in_dir:
             input_file = os.path.join(script_dir, mp3s_in_dir[0])
-            print(f"[*] No input file specified. Automatically using: {mp3s_in_dir[0]}")
+            print(f"[*] No file argument given. Using audio found in folder: {mp3s_in_dir[0]}")
         else:
-            print("[!] Usage: python test_variations.py <path_to_audio.mp3>")
-            input_file = input("Please enter path to your MP3 file: ").strip().strip('"')
+            print("[!] Usage: python test_variations.py <path_to_voice.mp3>")
+            input_file = input("Enter path to your voice MP3 file: ").strip().strip('"')
 
     if not os.path.exists(input_file):
-        print(f"[ERROR] Input file does not exist: {input_file}")
+        print(f"[ERROR] File does not exist: {input_file}")
         sys.exit(1)
 
     base_name = os.path.splitext(os.path.basename(input_file))[0]
     output_dir = args.output_dir or os.path.join(script_dir, "output")
     os.makedirs(output_dir, exist_ok=True)
 
-    print("=" * 72)
-    print(" SOUNDTOUCH TUNING LAB: 10 VARIATIONS GENERATOR")
-    print("=" * 72)
-    print(f"Input file : {input_file}")
-    print(f"Output dir : {output_dir}")
-    print(f"Constant pitch : -2.3 semitones")
-    print("-" * 72)
+    print("=" * 75)
+    print(" SOUNDTOUCH SPEECH TUNING LAB: 10 PURE SPEECH VARIATIONS")
+    print(" (NO EQ | NO COMPRESSOR | PURE SOUNDTOUCH PARAMETERS ONLY)")
+    print("=" * 75)
+    print(f"Input file     : {input_file}")
+    print(f"Output folder  : {output_dir}")
+    print(f"Pitch shift    : -2.3 semitones")
+    print("-" * 75)
 
     # 1. Initialize SoundTouch
     st_engine = SoundTouchDLL()
-    print(f"[*] Loaded SoundTouch Core: v{st_engine.get_version()}")
+    print(f"[*] Loaded SoundTouch Engine: v{st_engine.get_version()}")
 
     # 2. Decode Input Audio to 48kHz PCM
-    print("[*] Decoding input file to 48kHz 16-bit PCM...")
+    print("[*] Decoding voice to 48kHz 16-bit PCM...")
     samples, sr, channels = load_audio_as_pcm(input_file, target_sr=48000, target_channels=1)
     duration_sec = len(samples) / sr
-    print(f"[*] Loaded {len(samples)} samples ({duration_sec:.2f} seconds, {sr}Hz mono)")
-    print("-" * 72)
+    print(f"[*] Loaded {len(samples)} samples ({duration_sec:.2f}s, {sr}Hz mono voice)")
+    print("-" * 75)
 
-    # 3. Process each of the 10 variations
+    # 3. Process each of the 10 speech variations
     for idx, var in enumerate(VARIATIONS, 1):
         t0 = time.time()
-        print(f"[{idx}/10] Processing: {var['name']}.mp3 ...")
-        print(f"       SoundTouch: Seq={var['sequence_ms']}ms, Seek={var['seekwindow_ms']}ms, Overlap={var['overlap_ms']}ms, QS={var['quickseek']}, AA={var['aa_filter']}")
-        print(f"       Telegram  : Preset={var['preset_id']}, Tube={var['compressor']}")
+        print(f"[{idx:02d}/10] Generating: {var['name']}.mp3 ...")
+        print(f"       Seq={var['sequence_ms']}ms | Seek={var['seekwindow_ms']}ms | Overlap={var['overlap_ms']}ms | QS={var['quickseek']} | AA={var['aa_filter']} ({var['aa_filter_length']}t)")
 
-        # Step A: Run through SoundTouch WSOLA pitch shifter
+        # Run through SoundTouch pure WSOLA pitch shifter
         shifted_pcm = st_engine.process(
             samples,
             sample_rate=sr,
@@ -512,27 +497,19 @@ def main():
             seekwindow_ms=var["seekwindow_ms"],
             overlap_ms=var["overlap_ms"],
             quickseek=var["quickseek"],
-            aa_filter=var["aa_filter"]
+            aa_filter=var["aa_filter"],
+            aa_filter_length=var["aa_filter_length"]
         )
 
-        # Step B: Apply Telegram Studio EQ & Dynamics
-        final_pcm = apply_vocal_chain(
-            shifted_pcm,
-            sample_rate=sr,
-            channels=channels,
-            preset_id=var["preset_id"],
-            compressor_enabled=var["compressor"]
-        )
-
-        # Step C: Encode to 320 kbps MP3 with full metadata
+        # Encode directly to 320 kbps MP3 without EQ or compression
         out_path = os.path.join(output_dir, f"{var['name']}.mp3")
         save_pcm_as_mp3(
-            final_pcm,
+            shifted_pcm,
             out_path,
             sample_rate=sr,
             channels=channels,
             title=var["title"],
-            artist="SoundTouch Lab",
+            artist="SoundTouch Speech Lab",
             comment=var["description"]
         )
         elapsed = time.time() - t0
@@ -545,13 +522,13 @@ def main():
     print("[*] Generating interactive compare_player.html...")
     generate_html_player(output_dir, base_name)
 
-    print("=" * 72)
-    print(" ALL 10 MP3 VARIATIONS SUCCESSFULLY CREATED!")
-    print("=" * 72)
-    print(f"All files saved in: {output_dir}")
-    print("Open 'compare_player.html' in your browser to A/B test between all 10 tracks!")
-    print("Or open 'VARIATIONS_GUIDE.txt' for the complete parameter map.")
-    print("=" * 72)
+    print("=" * 75)
+    print(" ALL 10 PURE SPEECH VARIATIONS CREATED SUCCESSFULLY!")
+    print("=" * 75)
+    print(f"Location: {output_dir}")
+    print("Double-click 'compare_player.html' to A/B test between all 10 tracks!")
+    print("Open 'VARIATIONS_GUIDE.txt' to see the exact parameter map.")
+    print("=" * 75)
 
 
 if __name__ == "__main__":

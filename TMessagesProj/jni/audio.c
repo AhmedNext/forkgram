@@ -23,6 +23,8 @@ extern void soundtouch_set_pitch_semitones(float pitch);
 extern float soundtouch_get_pitch_semitones(void);
 extern void soundtouch_set_vocal_preset(int preset);
 extern int soundtouch_get_vocal_preset(void);
+extern void soundtouch_set_tempo(float tempo);
+extern float soundtouch_get_tempo(void);
 
 typedef struct {
     int version;
@@ -574,6 +576,10 @@ JNIEXPORT void Java_org_telegram_messenger_MediaController_setVoicePitchSemitone
 
 JNIEXPORT void Java_org_telegram_messenger_MediaController_setVocalPreset(JNIEnv *env, jclass class, jint preset) {
     soundtouch_set_vocal_preset((int)preset);
+}
+
+JNIEXPORT void Java_org_telegram_messenger_MediaController_setVoiceTempo(JNIEnv *env, jclass class, jfloat tempo) {
+    soundtouch_set_tempo((float)tempo);
 }
 
 JNIEXPORT jint Java_org_telegram_messenger_MediaController_isOpusFile(JNIEnv *env, jclass class, jstring path) {

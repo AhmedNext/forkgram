@@ -324,10 +324,12 @@ public class SharedConfig {
     public static boolean pauseMusicOnRecord = false;
     public static boolean pauseMusicOnMedia = false;
     public static boolean noiseSupression;
-    public static boolean voiceCompressor = false;
+    public static int vocalProfile = 0;
+    public static float voiceTempo = 1.0f;
     public static float voicePitch = -2.3f;
     public static boolean rawMicSource = true;
-    public static int vocalPreset = 0;
+    @Deprecated public static boolean voiceCompressor = false;
+    @Deprecated public static int vocalPreset = 0;
 
     public static int getAudioSource(boolean isCall) {
         if (isCall || !rawMicSource) {
@@ -497,10 +499,10 @@ public class SharedConfig {
                 editor.putInt("passportConfigHash", passportConfigHash);
                 editor.putBoolean("sortContactsByName", sortContactsByName);
                 editor.putBoolean("sortFilesByName", sortFilesByName);
-                editor.putBoolean("voiceCompressor", voiceCompressor);
+                editor.putInt("vocalProfile", vocalProfile);
+                editor.putFloat("voiceTempo", voiceTempo);
                 editor.putFloat("voicePitch", voicePitch);
                 editor.putBoolean("rawMicSource", rawMicSource);
-                editor.putInt("vocalPreset", vocalPreset);
                 editor.putInt("textSelectionHintShows", textSelectionHintShows);
                 editor.putInt("scheduledOrNoSoundHintShows", scheduledOrNoSoundHintShows);
                 editor.putLong("scheduledOrNoSoundHintSeenAt", scheduledOrNoSoundHintSeenAt);
@@ -585,12 +587,11 @@ public class SharedConfig {
             cfAccountID = preferences.getString("cfAccountID", "");
             cfApiToken = preferences.getString("cfApiToken", "");
             cfEnableStt = preferences.getBoolean("cfEnableStt", false);
-            voiceCompressor = preferences.getBoolean("voiceCompressor", false);
+            vocalProfile = preferences.getInt("vocalProfile", preferences.getInt("vocalPreset", 0));
+            voiceTempo = preferences.getFloat("voiceTempo", 1.0f);
             voicePitch = preferences.getFloat("voicePitch", -2.3f);
             rawMicSource = preferences.getBoolean("rawMicSource", true);
-            vocalPreset = preferences.getInt("vocalPreset", 0);
-            MediaController.syncVoicePitch();
-            MediaController.syncVocalPreset();
+            MediaController.syncVocalProfile();
             String authKeyString = preferences.getString("pushAuthKey", null);
             if (!TextUtils.isEmpty(authKeyString)) {
                 pushAuthKey = Base64.decode(authKeyString, Base64.DEFAULT);

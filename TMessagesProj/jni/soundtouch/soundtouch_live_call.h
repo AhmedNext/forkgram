@@ -47,17 +47,28 @@ void soundtouch_set_pitch_semitones(float pitch);
 float soundtouch_get_pitch_semitones(void);
 
 /**
- * Set global vocal style preset (0: Radio, 1: Warm Podcast, 2: Studio Crystal, 3: Cinematic Deep).
+ * Set global vocal style profile (0: The Works, 1: Radio EQ, 2: Warm Velvet, 3: Crystal, 4: Cinematic, 5: Pure Flat, 6: Comp, 7: Tube, 8: Comp+Tube).
  */
 void soundtouch_set_vocal_preset(int preset);
 
 /**
- * Get current global vocal style preset.
+ * Get current global vocal style profile.
  */
 int soundtouch_get_vocal_preset(void);
+
+/**
+ * Set global speaking delivery tempo (e.g. 1.0f, 0.95f, 0.90f).
+ */
+void soundtouch_set_tempo(float tempo);
+
+/**
+ * Get current global speaking delivery tempo.
+ */
+float soundtouch_get_tempo(void);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif // SOUNDTOUCH_LIVE_CALL_H
+

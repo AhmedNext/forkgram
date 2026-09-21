@@ -156,28 +156,27 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
 
     public static native void setVocalPreset(int preset);
 
-    public static void syncVoiceCompressor() {
+    public static native void setVoiceTempo(float tempo);
+
+    public static void syncVocalProfile() {
         try {
-            setVoiceCompressorEnabled(SharedConfig.voiceCompressor);
             setVoicePitchSemitones(SharedConfig.voicePitch);
-            setVocalPreset(SharedConfig.vocalPreset);
+            setVocalPreset(SharedConfig.vocalProfile);
+            setVoiceTempo(SharedConfig.voiceTempo);
         } catch (Throwable ignore) {
         }
+    }
+
+    public static void syncVoiceCompressor() {
+        syncVocalProfile();
     }
 
     public static void syncVoicePitch() {
-        try {
-            setVoicePitchSemitones(SharedConfig.voicePitch);
-            setVocalPreset(SharedConfig.vocalPreset);
-        } catch (Throwable ignore) {
-        }
+        syncVocalProfile();
     }
 
     public static void syncVocalPreset() {
-        try {
-            setVocalPreset(SharedConfig.vocalPreset);
-        } catch (Throwable ignore) {
-        }
+        syncVocalProfile();
     }
 
     public static AudioRecord createSafeAudioRecord(int sampleRate, int channelConfig, int audioFormat, int bufferSize) {

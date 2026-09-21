@@ -895,7 +895,7 @@ void soundtouch_process_live_call_frame(short *samples, int numSamples, int chan
         return;
     }
 
-    if (!g_soundTouchCall || g_callSampleRate != sampleRate || g_callChannels != channels || g_callPitch != pitchSemitones) {
+    if (!g_soundTouchCall || g_callSampleRate != sampleRate || g_callChannels != channels || fabsf(g_callPitch - pitchSemitones) > 0.001f) {
         if (!g_soundTouchCall) {
             g_soundTouchCall = new soundtouch::SoundTouch();
         }

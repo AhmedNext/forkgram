@@ -330,11 +330,8 @@ public class SharedConfig {
     public static int vocalPreset = 0;
 
     public static int getAudioSource(boolean isCall) {
-        if (!rawMicSource) {
+        if (isCall || !rawMicSource) {
             return isCall ? android.media.MediaRecorder.AudioSource.VOICE_COMMUNICATION : android.media.MediaRecorder.AudioSource.DEFAULT;
-        }
-        if (isCall) {
-            return android.media.MediaRecorder.AudioSource.VOICE_RECOGNITION;
         }
         if (android.os.Build.VERSION.SDK_INT >= 24) {
             return android.media.MediaRecorder.AudioSource.UNPROCESSED;

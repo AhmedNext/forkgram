@@ -385,15 +385,6 @@ void AudioSendStream::SendAudioData(std::unique_ptr<AudioFrame> audio_frame) {
   RTC_DCHECK_GT(audio_frame->sample_rate_hz_, 0);
   TRACE_EVENT0("webrtc", "AudioSendStream::SendAudioData");
 
-  if (audio_frame && !audio_frame->muted() && audio_frame->mutable_data() && audio_frame->samples_per_channel_ > 0) {
-    soundtouch_process_live_call_frame(
-        audio_frame->mutable_data(),
-        (int)audio_frame->samples_per_channel_,
-        (int)audio_frame->num_channels_,
-        audio_frame->sample_rate_hz_,
-        soundtouch_get_pitch_semitones());
-  }
-
   double duration = static_cast<double>(audio_frame->samples_per_channel_) /
                     audio_frame->sample_rate_hz_;
   {

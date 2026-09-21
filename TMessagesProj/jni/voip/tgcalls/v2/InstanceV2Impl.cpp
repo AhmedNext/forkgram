@@ -170,7 +170,7 @@ public:
                 cricket::AudioCodec codec = cricket::CreateAudioCodec(payloadType.id, payloadType.name, payloadType.clockrate, payloadType.channels);
 
                 codec.SetParam(cricket::kCodecParamUseInbandFec, 1);
-                codec.SetParam(cricket::kCodecParamPTime, 20);
+                codec.SetParam(cricket::kCodecParamPTime, 60);
                 codec.SetParam(cricket::kCodecParamMinBitrate, 32);
                 codec.SetParam(cricket::kCodecParamStartBitrate, 64);
                 codec.SetParam(cricket::kCodecParamMaxBitrate, 128);

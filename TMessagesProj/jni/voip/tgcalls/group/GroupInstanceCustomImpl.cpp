@@ -2565,7 +2565,7 @@ public:
         const uint8_t opusMinBitrateKbps = std::max<uint8_t>(32, _outgoingAudioBitrateKbit);
         const uint8_t opusMaxBitrateKbps = std::max<uint8_t>(128, _outgoingAudioBitrateKbit);
         const uint8_t opusStartBitrateKbps = std::max<uint8_t>(64, _outgoingAudioBitrateKbit);
-        const uint8_t opusPTimeMs = 20;
+        const uint8_t opusPTimeMs = 120;
 
         cricket::AudioCodec opusCodec = cricket::CreateAudioCodec(111, "opus", 48000, 2);
         opusCodec.AddFeedbackParam(cricket::FeedbackParam(cricket::kRtcpFbParamTransportCc));

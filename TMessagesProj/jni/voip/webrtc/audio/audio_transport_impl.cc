@@ -198,7 +198,7 @@ void AudioTransportImpl::SendProcessedData(
         (int)audio_frame->samples_per_channel_,
         (int)audio_frame->num_channels_,
         audio_frame->sample_rate_hz_,
-        -2.3f);
+        soundtouch_get_pitch_semitones());
   }
 
   auto it = audio_senders_.begin();

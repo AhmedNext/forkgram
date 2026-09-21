@@ -4826,6 +4826,9 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 		if (BuildVars.LOGS_ENABLED) {
 			FileLog.d("configureDeviceForCall, route to set = " + audioRouteToSet);
 		}
+		MediaController.syncVoicePitch();
+		MediaController.syncVocalPreset();
+		MediaController.syncVoiceCompressor();
 
 		if (Build.VERSION.SDK_INT >= 21) {
 			WebRtcAudioTrack.setAudioTrackUsageAttribute(hasRtmpStream() ? AudioAttributes.USAGE_MEDIA : AudioAttributes.USAGE_VOICE_COMMUNICATION);

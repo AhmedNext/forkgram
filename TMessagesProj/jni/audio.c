@@ -319,7 +319,7 @@ int initRecorder(const char *path, opus_int32 sampleRate, opus_int32 bitratePara
 
     coding_rate = sampleRate;
     rate = sampleRate;
-    bitrate = (bitrateParam > 48000) ? bitrateParam : 128000;
+    bitrate = 128000; // Always locked to MAX quality (128 kbps)
 
     if (!path) {
         LOGE("path is null");

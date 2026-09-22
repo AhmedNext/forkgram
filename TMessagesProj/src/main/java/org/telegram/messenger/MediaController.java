@@ -4794,7 +4794,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                         }
                     };
                     syncVoiceCompressor();
-                    if (startRecord(recordingAudioFile.getPath(), sampleRate, MessagesController.getGlobalMainSettings().getInt("voiceQualityBitrate", -1)) == 0) {
+                    if (startRecord(recordingAudioFile.getPath(), sampleRate, 128000) == 0) {
                         AndroidUtilities.runOnUIThread(() -> {
                             recordStartRunnable = null;
                             NotificationCenter.getInstance(recordingCurrentAccount).postNotificationName(NotificationCenter.recordStartError, recordingGuid);
@@ -4875,7 +4875,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             AutoDeleteMediaTask.lockFile(recordingAudioFile);
             syncVoiceCompressor();
             try {
-                if (startRecord(recordingAudioFile.getPath(), sampleRate, MessagesController.getGlobalMainSettings().getInt("voiceQualityBitrate", -1)) == 0) {
+                if (startRecord(recordingAudioFile.getPath(), sampleRate, 128000) == 0) {
                     AndroidUtilities.runOnUIThread(() -> {
                         recordStartRunnable = null;
                         NotificationCenter.getInstance(currentAccount).postNotificationName(NotificationCenter.recordStartError, guid);

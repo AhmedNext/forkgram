@@ -66,6 +66,16 @@ void soundtouch_set_tempo(float tempo);
  */
 float soundtouch_get_tempo(void);
 
+/**
+ * Set global microphone gain in dB (-10 dB to +3 dB) for recordings.
+ */
+void soundtouch_set_mic_gain_db(int gainDb);
+
+/**
+ * Get current global microphone gain in dB.
+ */
+int soundtouch_get_mic_gain_db(void);
+
 #ifdef __cplusplus
 }
 #endif

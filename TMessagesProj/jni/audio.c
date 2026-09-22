@@ -25,6 +25,8 @@ extern void soundtouch_set_vocal_preset(int preset);
 extern int soundtouch_get_vocal_preset(void);
 extern void soundtouch_set_tempo(float tempo);
 extern float soundtouch_get_tempo(void);
+extern void soundtouch_set_mic_gain_db(int gainDb);
+extern int soundtouch_get_mic_gain_db(void);
 
 typedef struct {
     int version;
@@ -580,6 +582,10 @@ JNIEXPORT void Java_org_telegram_messenger_MediaController_setVocalPreset(JNIEnv
 
 JNIEXPORT void Java_org_telegram_messenger_MediaController_setVoiceTempo(JNIEnv *env, jclass class, jfloat tempo) {
     soundtouch_set_tempo((float)tempo);
+}
+
+JNIEXPORT void Java_org_telegram_messenger_MediaController_setVoiceGainDb(JNIEnv *env, jclass class, jint gainDb) {
+    soundtouch_set_mic_gain_db((int)gainDb);
 }
 
 JNIEXPORT jint Java_org_telegram_messenger_MediaController_isOpusFile(JNIEnv *env, jclass class, jstring path) {

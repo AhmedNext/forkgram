@@ -1555,6 +1555,7 @@ public class ForkSettingsActivity extends BaseFragment {
         showRadioDialog(title, options, selectedIndex, index -> {
             SharedConfig.voiceGainDb = gains[index];
             SharedConfig.saveConfig();
+            MediaController.syncVocalProfile();
             listView.adapter.update(false);
         });
     }

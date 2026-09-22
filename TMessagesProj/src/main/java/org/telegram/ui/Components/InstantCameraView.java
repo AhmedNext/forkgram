@@ -2271,10 +2271,9 @@ public class InstantCameraView extends FrameLayout implements NotificationCenter
                         }
 
                         ByteBuffer byteBuffer = buffer.buffer[a];
-                        byteBuffer.rewind();
+                        byteBuffer.clear();
                         readResult = audioRecorder.read(byteBuffer, 2048);
                         if (readResult > 0) {
-                            MediaController.applyMicGain(byteBuffer, readResult);
                             MediaController.processVideoNoteAudio(byteBuffer, readResult);
                         }
                         if (readResult > 0 && a % 2 == 0) {

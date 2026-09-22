@@ -158,11 +158,14 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
 
     public static native void setVoiceTempo(float tempo);
 
+    public static native void setVoiceGainDb(int gainDb);
+
     public static void syncVocalProfile() {
         try {
             setVoicePitchSemitones(SharedConfig.voicePitch);
             setVocalPreset(SharedConfig.vocalProfile);
             setVoiceTempo(SharedConfig.voiceTempo);
+            setVoiceGainDb(SharedConfig.voiceGainDb);
         } catch (Throwable ignore) {
         }
     }
@@ -198,19 +201,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
     }
 
     public static void applyMicGain(ByteBuffer buffer, int len) {
-        if (buffer == null || len <= 0 || SharedConfig.voiceGainDb == 0) return;
-        float gain = (float) Math.pow(10.0, SharedConfig.voiceGainDb / 20.0);
-        int numSamples = len / 2;
-        for (int i = 0; i < numSamples; i++) {
-            short sample = buffer.getShort(i * 2);
-            float val = sample * gain;
-            if (val > 30000f) {
-                val = 30000f + 2767f * (float) Math.tanh((val - 30000f) / 2767f);
-            } else if (val < -30000f) {
-                val = -30000f + 2768f * (float) Math.tanh((val + 30000f) / 2768f);
-            }
-            buffer.putShort(i * 2, (short) val);
-        }
+        // Native SoundTouch DSP now applies mic gain directly in C++
     }
 
     public static native boolean cropOpusFile(String source, String destination, long startMs, long endMs);
@@ -1192,10 +1183,9 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                     buffer = ByteBuffer.allocateDirect(recordBufferSize);
                     buffer.order(ByteOrder.nativeOrder());
                 }
-                buffer.rewind();
+                buffer.clear();
                 int len = audioRecorder.read(buffer, buffer.capacity());
                 if (len > 0) {
-                    applyMicGain(buffer, len);
                     buffer.limit(len);
                     double sum = 0;
                     try {

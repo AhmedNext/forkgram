@@ -790,6 +790,22 @@ void soundtouch_set_tempo(float tempo) {
 float soundtouch_get_tempo(void) {
     return g_voiceTempo;
 }
+
+static int g_micGainDb = 0;
+static float g_micGainLinear = 1.0f;
+
+void soundtouch_set_mic_gain_db(int gainDb) {
+    g_micGainDb = gainDb;
+    if (gainDb == 0) {
+        g_micGainLinear = 1.0f;
+    } else {
+        g_micGainLinear = powf(10.0f, (float)gainDb / 20.0f);
+    }
+}
+
+int soundtouch_get_mic_gain_db(void) {
+    return g_micGainDb;
+}
 }
 
 static soundtouch::SoundTouch *g_soundTouchRecorder = nullptr;
@@ -862,13 +878,16 @@ int soundtouch_receive_samples(short *output, int maxSamples) {
                 floatBuffer[i] = g_recorderCompressor.processSample(floatBuffer[i], 0, g_compressorEnabled, g_tubeEnabled);
             }
             for (uint i = 0; i < received; ++i) {
-                float val = floatBuffer[i];
-                if (val > 32767.0f) val = 32767.0f;
-                else if (val < -32768.0f) val = -32768.0f;
+                float val = floatBuffer[i] * g_micGainLinear;
+                if (val > 30000.0f) {
+                    val = 30000.0f + 2767.0f * tanhf((val - 30000.0f) / 2767.0f);
+                } else if (val < -30000.0f) {
+                    val = -30000.0f + 2768.0f * tanhf((val + 30000.0f) / 2768.0f);
+                }
                 output[i] = (short)val;
             }
         } else {
-            const float gain = 1.15f;
+            const float gain = 1.15f * g_micGainLinear;
             for (uint i = 0; i < received; ++i) {
                 float val = floatBuffer[i] * gain;
                 if (val > 30000.0f) {
@@ -1229,13 +1248,17 @@ void soundtouch_process_video_note_frame(short *samples, int numSamples, int cha
             for (int ch = 0; ch < channels && ch < 2; ++ch) {
                 int idx = i * channels + ch;
                 float val = g_vnCompressor.processSample(floatBuffer[idx], ch, g_compressorEnabled, g_tubeEnabled);
-                if (val > 32767.0f) val = 32767.0f;
-                else if (val < -32768.0f) val = -32768.0f;
+                val *= g_micGainLinear;
+                if (val > 30000.0f) {
+                    val = 30000.0f + 2767.0f * tanhf((val - 30000.0f) / 2767.0f);
+                } else if (val < -30000.0f) {
+                    val = -30000.0f + 2768.0f * tanhf((val + 30000.0f) / 2768.0f);
+                }
                 samples[idx] = (short)val;
             }
         }
     } else {
-        const float gain = 1.15f;
+        const float gain = 1.15f * g_micGainLinear;
         for (uint i = 0; i < received * (uint)channels; ++i) {
             float val = floatBuffer[i] * gain;
             if (val > 30000.0f) {

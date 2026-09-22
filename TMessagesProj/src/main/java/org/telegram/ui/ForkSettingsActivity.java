@@ -1525,6 +1525,13 @@ public class ForkSettingsActivity extends BaseFragment {
     private void showVoiceGainDialog() {
         final String defaultSuffix = LocaleController.isRTL ? " (الافتراضي)" : " (Default)";
         final String[] options = {
+            "-10 dB",
+            "-9 dB",
+            "-8 dB",
+            "-7 dB",
+            "-6 dB",
+            "-5 dB",
+            "-4 dB",
             "-3 dB",
             "-2 dB",
             "-1 dB",
@@ -1533,10 +1540,10 @@ public class ForkSettingsActivity extends BaseFragment {
             "+2 dB",
             "+3 dB"
         };
-        final int[] gains = {-3, -2, -1, 0, 1, 2, 3};
+        final int[] gains = {-10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3};
 
         int currentGain = SharedConfig.voiceGainDb;
-        int selectedIndex = 3; // 0 dB default
+        int selectedIndex = 10; // 0 dB default
         for (int i = 0; i < gains.length; i++) {
             if (gains[i] == currentGain) {
                 selectedIndex = i;

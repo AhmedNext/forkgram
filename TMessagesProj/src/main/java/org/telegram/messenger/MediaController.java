@@ -197,6 +197,24 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         return record;
     }
 
+    public static void applyMicGain(ByteBuffer buffer, int len) {
+        if (buffer == null || len <= 0) return;
+        // Studio Raw Mic: +3.0 dB (1.4125f) to compensate for lack of OEM AGC on Poco/Xiaomi
+        // Standard Phone Mic: -2.0 dB (0.7943f) to eliminate harsh excessive phone mic boosting
+        float gain = SharedConfig.rawMicSource ? 1.4125f : 0.7943f;
+        int numSamples = len / 2;
+        for (int i = 0; i < numSamples; i++) {
+            short sample = buffer.getShort(i * 2);
+            float val = sample * gain;
+            if (val > 30000f) {
+                val = 30000f + 2767f * (float) Math.tanh((val - 30000f) / 2767f);
+            } else if (val < -30000f) {
+                val = -30000f + 2768f * (float) Math.tanh((val + 30000f) / 2768f);
+            }
+            buffer.putShort(i * 2, (short) val);
+        }
+    }
+
     public static native boolean cropOpusFile(String source, String destination, long startMs, long endMs);
 
     public static native boolean joinOpusFiles(String file1, String file2, String dest);
@@ -1179,6 +1197,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 buffer.rewind();
                 int len = audioRecorder.read(buffer, buffer.capacity());
                 if (len > 0) {
+                    applyMicGain(buffer, len);
                     buffer.limit(len);
                     double sum = 0;
                     try {

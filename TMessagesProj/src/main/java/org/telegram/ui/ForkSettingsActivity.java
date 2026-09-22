@@ -140,7 +140,7 @@ public class ForkSettingsActivity extends BaseFragment {
     public static final int ID_VOCAL_PROFILE = 66;
     public static final int ID_VOICE_TEMPO = 67;
     public static final int ID_VOICE_PITCH = 68;
-    public static final int ID_RAW_MIC_SOURCE = 69;
+    public static final int ID_VOICE_GAIN = 69;
 
     public static final int ID_BOT_SKIP_SHARE = 70;
     public static final int ID_BOT_SKIP_FULLSCREEN = 71;
@@ -296,6 +296,14 @@ public class ForkSettingsActivity extends BaseFragment {
         if (bitrate <= 32000) return LocaleController.getString(R.string.VoiceQualityMedium);
         if (bitrate <= 64000) return LocaleController.getString(R.string.VoiceQualityHigh);
         return LocaleController.getString(R.string.VoiceQualityMax);
+    }
+
+    private static String getVoiceGainText() {
+        int gain = SharedConfig.voiceGainDb;
+        if (gain == 0) {
+            return LocaleController.isRTL ? "0 dB (الافتراضي)" : "0 dB (Default)";
+        }
+        return (gain > 0 ? "+" : "") + gain + " dB";
     }
 
     private static String getVoicePitchText() {
@@ -718,8 +726,7 @@ public class ForkSettingsActivity extends BaseFragment {
         items.add(UItem.asSettingsCell(ID_VOCAL_PROFILE, LocaleController.isRTL ? "بروفايل معالجة الصوت المباشر" : "Live Vocal Processing Profile", getVocalProfileText()));
         items.add(UItem.asSettingsCell(ID_VOICE_TEMPO, LocaleController.isRTL ? "سرعة ونبرة الإلقاء الصوتي (Tempo)" : "Speaking Delivery Tempo", getVoiceTempoText()));
         items.add(UItem.asSettingsCell(ID_VOICE_PITCH, LocaleController.isRTL ? "درجة طبقة وخامة الصوت (Pitch Shift)" : "Voice Pitch Shift (Semitones)", getVoicePitchText()));
-        items.add(UItem.asButtonCheck(ID_RAW_MIC_SOURCE, LocaleController.isRTL ? "ميكروفون ستوديو نقي (تجاوز كتم الهاتف)" : "Studio Raw Mic (Bypass Phone Muffle)", LocaleController.isRTL ? "تجاوز معالجة وفلترة الهاتف المدمجة لإطلاق كامل ترددات الميكروفون مع تعزيز +3dB (لا يطبّق على المكالمات منعاً للمشاكل والصدى)." : "Bypass phone OEM filtering to capture full raw frequencies with +3dB gain boost (never applied in calls to ensure echo-free stability).")
-            .setChecked(SharedConfig.rawMicSource).setMultiline(true));
+        items.add(UItem.asSettingsCell(ID_VOICE_GAIN, LocaleController.isRTL ? "مستوى كسب وحساسية الميكروفون" : "Microphone Gain Adjustment", getVoiceGainText()));
         items.add(UItem.asSettingsCell(ID_VOICE_QUALITY, LocaleController.getString(R.string.VoiceMessageQuality), getVoiceQualityText()));
         items.add(UItem.asButtonCheck(ID_DISABLE_AUTOPLAY_NEXT_VOICE, LocaleController.getString(R.string.DisableAutoplayNextVoice), LocaleController.getString(R.string.DisableAutoplayNextVoiceInfo))
             .setChecked(pref("disableAutoplayNextVoice", false)).setMultiline(true));
@@ -916,10 +923,8 @@ public class ForkSettingsActivity extends BaseFragment {
             showVoiceTempoDialog();
         } else if (id == ID_VOICE_PITCH) {
             showVoicePitchDialog();
-        } else if (id == ID_RAW_MIC_SOURCE) {
-            SharedConfig.rawMicSource = !SharedConfig.rawMicSource;
-            SharedConfig.saveConfig();
-            setCellChecked(view, SharedConfig.rawMicSource);
+        } else if (id == ID_VOICE_GAIN) {
+            showVoiceGainDialog();
         } else if (id == ID_VOICE_QUALITY) {
             showVoiceQualityDialog();
         } else if (id == ID_DISABLE_AUTOPLAY_NEXT_VOICE) {
@@ -1551,6 +1556,36 @@ public class ForkSettingsActivity extends BaseFragment {
             SharedConfig.vocalProfile = index;
             SharedConfig.saveConfig();
             MediaController.syncVocalProfile();
+            listView.adapter.update(false);
+        });
+    }
+
+    private void showVoiceGainDialog() {
+        final String defaultSuffix = LocaleController.isRTL ? " (الافتراضي)" : " (Default)";
+        final String[] options = {
+            "-3 dB",
+            "-2 dB",
+            "-1 dB",
+            "0 dB" + defaultSuffix,
+            "+1 dB",
+            "+2 dB",
+            "+3 dB"
+        };
+        final int[] gains = {-3, -2, -1, 0, 1, 2, 3};
+
+        int currentGain = SharedConfig.voiceGainDb;
+        int selectedIndex = 3; // 0 dB default
+        for (int i = 0; i < gains.length; i++) {
+            if (gains[i] == currentGain) {
+                selectedIndex = i;
+                break;
+            }
+        }
+
+        String title = LocaleController.isRTL ? "مستوى كسب الميكروفون" : "Microphone Gain Adjustment";
+        showRadioDialog(title, options, selectedIndex, index -> {
+            SharedConfig.voiceGainDb = gains[index];
+            SharedConfig.saveConfig();
             listView.adapter.update(false);
         });
     }

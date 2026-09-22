@@ -198,10 +198,8 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
     }
 
     public static void applyMicGain(ByteBuffer buffer, int len) {
-        if (buffer == null || len <= 0) return;
-        // Studio Raw Mic: +3.0 dB (1.4125f) to compensate for lack of OEM AGC on Poco/Xiaomi
-        // Standard Phone Mic: -2.0 dB (0.7943f) to eliminate harsh excessive phone mic boosting
-        float gain = SharedConfig.rawMicSource ? 1.4125f : 0.7943f;
+        if (buffer == null || len <= 0 || SharedConfig.voiceGainDb == 0) return;
+        float gain = (float) Math.pow(10.0, SharedConfig.voiceGainDb / 20.0);
         int numSamples = len / 2;
         for (int i = 0; i < numSamples; i++) {
             short sample = buffer.getShort(i * 2);

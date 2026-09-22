@@ -327,18 +327,13 @@ public class SharedConfig {
     public static int vocalProfile = 0;
     public static float voiceTempo = 1.0f;
     public static float voicePitch = -2.3f;
-    public static boolean rawMicSource = true;
+    public static int voiceGainDb = 0;
+    @Deprecated public static boolean rawMicSource = false;
     @Deprecated public static boolean voiceCompressor = false;
     @Deprecated public static int vocalPreset = 0;
 
     public static int getAudioSource(boolean isCall) {
-        if (isCall || !rawMicSource) {
-            return isCall ? android.media.MediaRecorder.AudioSource.VOICE_COMMUNICATION : android.media.MediaRecorder.AudioSource.DEFAULT;
-        }
-        if (android.os.Build.VERSION.SDK_INT >= 24) {
-            return android.media.MediaRecorder.AudioSource.UNPROCESSED;
-        }
-        return android.media.MediaRecorder.AudioSource.VOICE_RECOGNITION;
+        return isCall ? android.media.MediaRecorder.AudioSource.VOICE_COMMUNICATION : android.media.MediaRecorder.AudioSource.DEFAULT;
     }
     public static boolean debugWebView;
     public static boolean sortContactsByName;
@@ -502,7 +497,7 @@ public class SharedConfig {
                 editor.putInt("vocalProfile", vocalProfile);
                 editor.putFloat("voiceTempo", voiceTempo);
                 editor.putFloat("voicePitch", voicePitch);
-                editor.putBoolean("rawMicSource", rawMicSource);
+                editor.putInt("voiceGainDb", voiceGainDb);
                 editor.putInt("textSelectionHintShows", textSelectionHintShows);
                 editor.putInt("scheduledOrNoSoundHintShows", scheduledOrNoSoundHintShows);
                 editor.putLong("scheduledOrNoSoundHintSeenAt", scheduledOrNoSoundHintSeenAt);
@@ -590,7 +585,7 @@ public class SharedConfig {
             vocalProfile = preferences.getInt("vocalProfile", preferences.getInt("vocalPreset", 0));
             voiceTempo = preferences.getFloat("voiceTempo", 1.0f);
             voicePitch = preferences.getFloat("voicePitch", -2.3f);
-            rawMicSource = preferences.getBoolean("rawMicSource", true);
+            voiceGainDb = preferences.getInt("voiceGainDb", 0);
             MediaController.syncVocalProfile();
             String authKeyString = preferences.getString("pushAuthKey", null);
             if (!TextUtils.isEmpty(authKeyString)) {

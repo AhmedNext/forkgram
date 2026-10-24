@@ -3,6 +3,7 @@ package org.telegram.messenger.voip;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Matrix;
 import android.graphics.Point;
 import android.media.projection.MediaProjection;
 import android.os.Build;
@@ -24,6 +25,7 @@ import org.webrtc.Logging;
 import org.webrtc.ScreenCapturerAndroid;
 import org.webrtc.SurfaceTextureHelper;
 import org.webrtc.VideoCapturer;
+import org.webrtc.VideoFrame;
 import org.webrtc.voiceengine.WebRtcAudioRecord;
 
 public class VideoCapturerDevice {
@@ -48,6 +50,7 @@ public class VideoCapturerDevice {
 
     private static VideoCapturerDevice[] instance = new VideoCapturerDevice[2];
     private CapturerObserver nativeCapturerObserver;
+    private volatile boolean isFrontCamera;
 
     public VideoCapturerDevice(boolean screencast) {
         if (Build.VERSION.SDK_INT < 18) {
@@ -176,7 +179,7 @@ public class VideoCapturerDevice {
                     });
                 }
             } else {
-                CameraEnumerator enumerator = Camera2Enumerator.isSupported(ApplicationLoader.applicationContext) ? new Camera2Enumerator(ApplicationLoader.applicationContext) : new Camera1Enumerator();
+                CameraEnumerator enumerator = Camera2Enumerator.isSupported(ApplicationLoader.applicationContext) ? new Camera2Enumerator(ApplicationLoader.applicationContext) : new Camera1Enumerator(true);
                 int index = -1;
                 String[] names = enumerator.getDeviceNames();
                 for (int a = 0; a < names.length; a++) {
@@ -191,6 +194,7 @@ public class VideoCapturerDevice {
                 }
                 String cameraName = names[index];
                 if (videoCapturer == null) {
+                    isFrontCamera = enumerator.isFrontFacing(cameraName);
                     videoCapturer = enumerator.createCapturer(cameraName, new CameraVideoCapturer.CameraEventsHandler() {
                         @Override
                         public void onCameraError(String errorDescription) {
@@ -209,7 +213,7 @@ public class VideoCapturerDevice {
 
                         @Override
                         public void onCameraOpening(String cameraName) {
-
+                            isFrontCamera = enumerator.isFrontFacing(cameraName);
                         }
 
                         @Override
@@ -232,7 +236,45 @@ public class VideoCapturerDevice {
                             return;
                         }
                         nativeCapturerObserver = nativeGetJavaVideoCapturerObserver(nativePtr);
-                        videoCapturer.initialize(videoCapturerSurfaceTextureHelper, ApplicationLoader.applicationContext, nativeCapturerObserver);
+                        final CapturerObserver delegate = nativeCapturerObserver;
+                        videoCapturer.initialize(videoCapturerSurfaceTextureHelper, ApplicationLoader.applicationContext, new CapturerObserver() {
+                            @Override
+                            public void onCapturerStarted(boolean success) {
+                                delegate.onCapturerStarted(success);
+                            }
+
+                            @Override
+                            public void onCapturerStopped() {
+                                delegate.onCapturerStopped();
+                            }
+
+                            @Override
+                            public void onFrameCaptured(VideoFrame frame) {
+                                // Both Camera2 and Camera1's default texture capture supply textures.
+                                // Mirror the transmitted frame, rather than only the local preview.
+                                if (!isFrontCamera || !(frame.getBuffer() instanceof VideoFrame.TextureBuffer)) {
+                                    delegate.onFrameCaptured(frame);
+                                    return;
+                                }
+                                final VideoFrame.TextureBuffer buffer = (VideoFrame.TextureBuffer) frame.getBuffer();
+                                final Matrix mirror = new Matrix();
+                                // A horizontal flip after display rotation is a vertical buffer flip
+                                // for quarter-turn frames (the usual portrait-camera orientation).
+                                if (frame.getRotation() % 180 == 0) {
+                                    mirror.setScale(-1f, 1f, 0.5f, 0.5f);
+                                } else {
+                                    mirror.setScale(1f, -1f, 0.5f, 0.5f);
+                                }
+                                final VideoFrame mirroredFrame = new VideoFrame(
+                                        buffer.applyTransformMatrix(mirror, buffer.getWidth(), buffer.getHeight()),
+                                        frame.getRotation(), frame.getTimestampNs());
+                                try {
+                                    delegate.onFrameCaptured(mirroredFrame);
+                                } finally {
+                                    mirroredFrame.release();
+                                }
+                            }
+                        });
                         FileLog.d("VideoCapturerDevice init(" + ptr + "): videoCapturer.startCapture CAMERA");
                         videoCapturer.startCapture(CAPTURE_WIDTH, CAPTURE_HEIGHT, CAPTURE_FPS);
                     });

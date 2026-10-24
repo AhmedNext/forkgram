@@ -258,7 +258,7 @@ public abstract class PrivateVideoPreviewDialog extends FrameLayout implements V
 
         VoIPService service = VoIPService.getSharedInstance();
         if (service != null) {
-            textureView.renderer.setMirror(service.isFrontFaceCamera());
+            textureView.renderer.setMirror(false);
             textureView.renderer.init(VideoCapturerDevice.getEglBase().getEglBaseContext(), new RendererCommon.RendererEvents() {
                 @Override
                 public void onFirstFrameRendered() {
@@ -498,7 +498,7 @@ public abstract class PrivateVideoPreviewDialog extends FrameLayout implements V
 
     public void update() {
         if (VoIPService.getSharedInstance() != null) {
-            textureView.renderer.setMirror(VoIPService.getSharedInstance().isFrontFaceCamera());
+            textureView.renderer.setMirror(false);
         }
     }
 

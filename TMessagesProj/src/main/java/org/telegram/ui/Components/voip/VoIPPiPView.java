@@ -317,7 +317,7 @@ public class VoIPPiPView implements VoIPService.StateListener, IPipSourceDelegat
         callingUserTextureView = new VoIPTextureView(context, false, true);
         callingUserTextureView.scaleType = VoIPTextureView.SCALE_TYPE_NONE;
         currentUserTextureView = new VoIPTextureView(context, false, true);
-        currentUserTextureView.renderer.setMirror(true);
+        currentUserTextureView.renderer.setMirror(false);
 
         floatingView.addView(callingUserTextureView);
         floatingView.addView(currentUserTextureView);
@@ -482,7 +482,7 @@ public class VoIPPiPView implements VoIPService.StateListener, IPipSourceDelegat
         if (service != null) {
             callingUserIsVideo = service.getRemoteVideoState() == Instance.VIDEO_STATE_ACTIVE;
             currentUserIsVideo = service.getVideoState(false) == Instance.VIDEO_STATE_ACTIVE || service.getVideoState(false) == Instance.VIDEO_STATE_PAUSED;
-            currentUserTextureView.renderer.setMirror(service.isFrontFaceCamera());
+            currentUserTextureView.renderer.setMirror(false);
             currentUserTextureView.setIsScreencast(service.isScreencast());
             currentUserTextureView.setScreenshareMiniProgress(1.0f, false);
         }

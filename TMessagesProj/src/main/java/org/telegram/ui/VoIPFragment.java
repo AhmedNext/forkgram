@@ -881,7 +881,8 @@ public class VoIPFragment implements
                 updateViewState();
             }
         });
-        currentUserTextureView.renderer.setMirror(true);
+        // Selfie frames are already mirrored in the outgoing capture pipeline.
+        currentUserTextureView.renderer.setMirror(false);
         currentUserCameraFloatingLayout.addView(currentUserTextureView);
 
         callingUserMiniFloatingLayout = new VoIPFloatingLayout(context);
@@ -2142,7 +2143,7 @@ public class VoIPFragment implements
                 service.sharedUIParams.tapToVideoTooltipWasShowed = true;
             }
             currentUserTextureView.setIsScreencast(service.isScreencast());
-            currentUserTextureView.renderer.setMirror(service.isFrontFaceCamera());
+            currentUserTextureView.renderer.setMirror(false);
             service.setSinks(currentUserIsVideo && !service.isScreencast() ? currentUserTextureView.renderer : null, windowViewSkipRender && pipTextureView != null ? pipTextureView.renderer : showCallingUserVideoMini ? callingUserMiniTextureRenderer : callingUserTextureView.renderer);
 
             if (animated) {

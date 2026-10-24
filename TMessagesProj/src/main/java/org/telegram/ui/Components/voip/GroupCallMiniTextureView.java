@@ -1099,7 +1099,7 @@ public class GroupCallMiniTextureView extends FrameLayout implements GroupCallSt
             }
 
             if (participant.participant.self && !participant.presentation && VoIPService.getSharedInstance() != null) {
-                textureView.renderer.setMirror(VoIPService.getSharedInstance().isFrontFaceCamera());
+                textureView.renderer.setMirror(false);
                 textureView.renderer.setRotateTextureWithScreen(true);
                 textureView.renderer.setUseCameraRotation(true);
             } else {

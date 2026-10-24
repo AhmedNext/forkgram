@@ -98,6 +98,9 @@
     <string name="OfflineTranscriptionInfo">La transcripción se realiza en tu dispositivo mediante una app de motor aparte, como **Scrib** en F-Droid.</string>
     <string name="OfflineTranscriptionMissing">App no instalada</string>
     <string name="OfflineTranscriptionNoModel">Aún no se ha descargado ningún modelo. Abre %1$s para descargar un modelo de idioma.</string>
+    <string name="VideoSubtitles">Subtítulos</string>
+    <string name="VideoSubtitlesGenerating">Generando subtítulos…</string>
+    <string name="VideoSubtitlesUnavailable">Descarga el video para generar subtítulos</string>
     <string name="DropScreenshotCaptionInfo">Quitar el texto cuando se comparte una captura de pantalla desde otra aplicación.</string>
     <string name="HideInAppHintsInfo">Ocultar los banners promocionales en la lista de chats y el aviso de cumpleaños en los chats.</string>
     <string name="HideBottomButtonInfo">Vaciar el botón de la barra inferior (Silenciar, Unirse) e ignorar los toques en él.</string>
@@ -1573,4 +1576,41 @@
     <string name="FolderTabsStyleInfo">Elige cómo aparecen las carpetas en la barra de pestañas. Asigna un icono a cada carpeta en sus ajustes.</string>
     <string name="ShareDeleteOriginals">Eliminar los mensajes originales</string>
     <string name="SendAsSinglePhoto">Enviar como una sola foto</string>
+
+    <string name="VoiceTimecodes">Marcas de tiempo de voz</string>
+    <string name="VoiceTimecodesSection">Marcas de tiempo de mensajes de voz</string>
+    <string name="VoiceTimecodesInfo">Transcribe automáticamente los mensajes de voz enviados, genera marcas de tiempo de capítulos mediante un LLM y las adjunta como pie de foto del mensaje.</string>
+    <string name="VoiceTimecodesEnabled">Activar marcas de tiempo</string>
+    <string name="VoiceTimecodesSttUrl">URL del servicio STT</string>
+    <string name="VoiceTimecodesSttUrlHint">https://stt.example.com/v1/audio/transcriptions</string>
+    <string name="VoiceTimecodesSttToken">Token Bearer de STT</string>
+    <string name="VoiceTimecodesLlmUrl">URL de la API de chat del LLM</string>
+    <string name="VoiceTimecodesLlmUrlHint">https://api.example.com/v1/chat/completions</string>
+    <string name="VoiceTimecodesLlmToken">Clave de API del LLM</string>
+    <string name="VoiceTimecodesLlmModel">Modelo del LLM</string>
+    <string name="VoiceTimecodesLlmModelHint">aistudio-gemini-3.8-flash</string>
+    <string name="VoiceTimecodesMinDuration">Duración mínima del mensaje de voz (segundos)</string>
+    <string name="VoiceTimecodesPrompt">Plantilla del prompt ({transcript} = texto)</string>
+    <string name="VoiceTimecodesResetPrompt">Restablecer el prompt</string>
+    <string name="VoiceTimecodesCodeTitle">Código de ajustes</string>
+    <string name="VoiceTimecodesCodeInfo">Un código de una sola línea con todos los ajustes de marcas de tiempo de voz, incluidas las claves de API. Cópialo en Mensajes guardados y, en otro dispositivo, vuelve a copiarlo y pulsa «Importar código». Mantén el código en privado.</string>
+    <string name="VoiceTimecodesCodeHint">Toca «Exportar» o pega un código de otro dispositivo</string>
+    <string name="VoiceTimecodesCodeExport">Exportar al portapapeles</string>
+    <string name="VoiceTimecodesCodeImport">Importar código</string>
+    <string name="VoiceTimecodesCodeCopied">Código de ajustes copiado</string>
+    <string name="VoiceTimecodesCodeImported">Ajustes importados</string>
+    <string name="VoiceTimecodesCodeImportFailed">Código de ajustes no válido o vacío</string>
+    <string name="VoiceTimecodesSaved">Ajustes de marcas de tiempo guardados</string>
+    <string name="VoiceTimecodesDone">Marcas de tiempo añadidas</string>
+    <string name="VoiceTimecodesGenerate">Añadir marcas de tiempo</string>
+    <string name="VoiceTimecodesProcessing">Generando marcas de tiempo…</string>
+    <string name="VoiceTimecodesError">No se pudieron generar las marcas de tiempo</string>
+
+    <string name="QuickAttach">Adjuntar rápido</string>
+    <string name="QuickAttachInfo">Mantén pulsado el botón de adjuntar para desplegar las fotos recientes y la cámara.</string>
+    <string name="QuickAttachSendImmediately">Enviar al instante</string>
+    <string name="QuickAttachSendImmediatelyInfo">Envía la foto seleccionada al instante. Si está desactivado, se abre primero en el editor, donde puedes ajustarla o añadir un pie de foto.</string>
+    <string name="QuickAttachNewestFirst">Fotos más recientes a la izquierda</string>
+    <string name="QuickAttachNewestFirstInfo">Si está desactivado, las fotos recientes se ordenan de más antigua a más reciente, de izquierda a derecha.</string>
+    <string name="PhotoSent">Foto enviada</string>
 </resources>

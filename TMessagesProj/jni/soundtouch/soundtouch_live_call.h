@@ -57,7 +57,7 @@ void soundtouch_set_vocal_preset(int preset);
 int soundtouch_get_vocal_preset(void);
 
 /**
- * Set global speaking delivery tempo (e.g. 1.0f, 0.95f, 0.90f).
+ * Set recording delivery tempo (e.g. 1.0f, 0.95f, 0.90f). Calls stay at 1.0f.
  */
 void soundtouch_set_tempo(float tempo);
 
@@ -67,7 +67,7 @@ void soundtouch_set_tempo(float tempo);
 float soundtouch_get_tempo(void);
 
 /**
- * Set global microphone gain in dB (-10 dB to +3 dB) for recordings.
+ * Set global microphone gain in dB for recordings and live calls.
  */
 void soundtouch_set_mic_gain_db(int gainDb);
 
@@ -81,4 +81,3 @@ int soundtouch_get_mic_gain_db(void);
 #endif
 
 #endif // SOUNDTOUCH_LIVE_CALL_H
-

@@ -29,7 +29,7 @@ import androidx.annotation.RequiresApi;
 import androidx.core.content.pm.ShortcutManagerCompat;
 
 import org.json.JSONObject;
-import org.telegram.proxy.ProxySettings;
+import org.telegram.utils.proxy.ProxySettings;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.InputSerializedData;
 import org.telegram.tgnet.OutputSerializedData;
@@ -291,6 +291,7 @@ public class SharedConfig {
     public static String unifiedPushGateway;
     public static int stealthModeSendMessageConfirm = 2;
     private static int lastLocalId = -210000;
+    public static boolean walletUseFingerprintLock = true;
 
     public static String storageCacheDir;
 
@@ -484,6 +485,7 @@ public class SharedConfig {
                 editor.putInt("autoLockIn", autoLockIn);
                 editor.putInt("lastPauseTime", lastPauseTime);
                 editor.putBoolean("useFingerprint", useFingerprintLock);
+                editor.putBoolean("walletUseFingerprintLock", walletUseFingerprintLock);
                 editor.putBoolean("allowScreenCapture", allowScreenCapture);
                 editor.putString("pushString2", pushString);
                 editor.putInt("pushType", pushType);
@@ -569,6 +571,7 @@ public class SharedConfig {
             autoLockIn = preferences.getInt("autoLockIn", 60 * 60);
             lastPauseTime = preferences.getInt("lastPauseTime", 0);
             useFingerprintLock = preferences.getBoolean("useFingerprint", true);
+            walletUseFingerprintLock = preferences.getBoolean("walletUseFingerprintLock", true);
             allowScreenCapture = preferences.getBoolean("allowScreenCapture", false);
             lastLocalId = preferences.getInt("lastLocalId", -210000);
             pushString = preferences.getString("pushString2", "");
@@ -955,6 +958,7 @@ public class SharedConfig {
         autoLockIn = 60 * 60;
         lastPauseTime = 0;
         useFingerprintLock = true;
+        walletUseFingerprintLock = true;
         isWaitingForPasscodeEnter = false;
         allowScreenCapture = false;
         textSelectionHintShows = 0;
@@ -1601,7 +1605,6 @@ public class SharedConfig {
             editor.putInt("proxy_type", 0);
             editor.putInt("proxy_port", 1080);
             editor.putBoolean("proxy_enabled", false);
-            editor.putBoolean("proxy_enabled_calls", false);
             editor.apply();
             if (enabled) {
                 ConnectionsManager.setProxySettings(false, null);

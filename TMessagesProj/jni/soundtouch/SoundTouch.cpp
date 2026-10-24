@@ -567,6 +567,9 @@ struct VocalBiquad {
     }
 
     void setPeaking(float sampleRate, float f0, float gainDB, float Q) {
+        // A peaking filter above Nyquist has unstable poles. At the recorder's
+        // 48 kHz rate this leaves the existing profile coefficients unchanged.
+        if (f0 >= sampleRate * 0.5f) f0 = sampleRate * 0.45f;
         float A = powf(10.0f, gainDB / 40.0f);
         float w0 = 2.0f * 3.14159265358979323846f * f0 / sampleRate;
         float cosw0 = cosf(w0);
@@ -945,49 +948,57 @@ static BroadcastVocalProcessor g_callCompressor;
 static std::vector<float> g_callFifo;
 static int g_callPreset = -1;
 
-static float g_callTempo = 1.0f;
-
 extern "C" {
 
+// Match soundtouch_receive_samples: same EQ, dynamics, mic gain and soft limiter.
+// The separate filter state prevents a call from disturbing voice-note recording.
+static short process_call_sample(float value, int channel) {
+    if (g_eqEnabled) {
+        value = g_callHpf.process(value, channel);
+        value = g_callWarmth.process(value, channel);
+        value = g_callDebox.process(value, channel);
+        value = g_callAir.process(value, channel);
+    }
+    if (g_compressorEnabled || g_tubeEnabled) {
+        value = g_callCompressor.processSample(value, channel, g_compressorEnabled, g_tubeEnabled);
+        value *= g_micGainLinear;
+    } else {
+        value *= 1.15f * g_micGainLinear;
+    }
+    if (value > 30000.0f) {
+        value = 30000.0f + 2767.0f * tanhf((value - 30000.0f) / 2767.0f);
+    } else if (value < -30000.0f) {
+        value = -30000.0f + 2768.0f * tanhf((value + 30000.0f) / 2768.0f);
+    }
+    return (short)value;
+}
+
 void soundtouch_process_live_call_frame(short *samples, int numSamples, int channels, int sampleRate, float pitchSemitones) {
-    if (!samples || numSamples <= 0 || channels <= 0 || sampleRate <= 0) return;
+    if (!samples || numSamples <= 0 || channels <= 0 || channels > 2 || sampleRate <= 0) return;
 
     std::lock_guard<std::mutex> lock(g_callMutex);
 
-    if (g_callPreset != g_vocalPreset) {
+    if (g_callPreset != g_vocalPreset || g_callSampleRate != sampleRate || g_callChannels != channels) {
         apply_vocal_preset(g_vocalPreset, (float)sampleRate, g_callHpf, g_callWarmth, g_callDebox, g_callAir, g_callCompressor);
         g_callPreset = g_vocalPreset;
     }
 
-    if (fabsf(pitchSemitones) < 0.01f && fabsf(g_voiceTempo - 1.0f) < 0.001f) {
-        if (g_eqEnabled) {
-            for (int i = 0; i < numSamples; ++i) {
-                for (int ch = 0; ch < channels && ch < 2; ++ch) {
-                    int idx = i * channels + ch;
-                    float s = (float)samples[idx];
-                    s = g_callHpf.process(s, ch);
-                    s = g_callWarmth.process(s, ch);
-                    s = g_callDebox.process(s, ch);
-                    s = g_callAir.process(s, ch);
-                    samples[idx] = (short)(s > 32767.0f ? 32767.0f : (s < -32768.0f ? -32768.0f : s));
-                }
-            }
-        }
-        if (g_compressorEnabled || g_tubeEnabled) {
-            for (int i = 0; i < numSamples; ++i) {
-                for (int ch = 0; ch < channels && ch < 2; ++ch) {
-                    int idx = i * channels + ch;
-                    float val = g_callCompressor.processSample((float)samples[idx], ch, g_compressorEnabled, g_tubeEnabled);
-                    if (val > 32767.0f) val = 32767.0f;
-                    else if (val < -32768.0f) val = -32768.0f;
-                    samples[idx] = (short)val;
-                }
+    if (fabsf(pitchSemitones) < 0.01f) {
+        if (g_soundTouchCall) g_soundTouchCall->clear();
+        g_callFifo.clear();
+        g_callSampleRate = sampleRate;
+        g_callChannels = channels;
+        g_callPitch = 0.0f;
+        for (int i = 0; i < numSamples; ++i) {
+            for (int ch = 0; ch < channels; ++ch) {
+                int idx = i * channels + ch;
+                samples[idx] = process_call_sample((float)samples[idx], ch);
             }
         }
         return;
     }
 
-    if (!g_soundTouchCall || g_callSampleRate != sampleRate || g_callChannels != channels || fabsf(g_callPitch - pitchSemitones) > 0.001f || fabsf(g_callTempo - g_voiceTempo) > 0.001f) {
+    if (!g_soundTouchCall || g_callSampleRate != sampleRate || g_callChannels != channels || fabsf(g_callPitch - pitchSemitones) > 0.001f) {
         if (!g_soundTouchCall) {
             g_soundTouchCall = new soundtouch::SoundTouch();
         }
@@ -995,7 +1006,7 @@ void soundtouch_process_live_call_frame(short *samples, int numSamples, int chan
         g_soundTouchCall->setSampleRate(sampleRate);
         g_soundTouchCall->setChannels(channels);
         g_soundTouchCall->setPitchSemiTones(pitchSemitones);
-        g_soundTouchCall->setTempo(g_voiceTempo);
+        g_soundTouchCall->setTempo(1.0f); // Live calls always run at normal speed.
 
         // Studio-grade pitch shifting parameters requested by user (Seq=100ms, Seek=35ms, Overlap=18ms, AA=128t, QS=0)
         g_soundTouchCall->setSetting(SETTING_SEQUENCE_MS, 100);
@@ -1012,7 +1023,6 @@ void soundtouch_process_live_call_frame(short *samples, int numSamples, int chan
         g_callSampleRate = sampleRate;
         g_callChannels = channels;
         g_callPitch = pitchSemitones;
-        g_callTempo = g_voiceTempo;
 
         g_callFifo.clear();
 
@@ -1053,42 +1063,10 @@ void soundtouch_process_live_call_frame(short *samples, int numSamples, int chan
         std::vector<float> outBlock(g_callFifo.begin(), g_callFifo.begin() + totalSamples);
         g_callFifo.erase(g_callFifo.begin(), g_callFifo.begin() + totalSamples);
 
-        // Apply 4-Band Vocal Studio EQ if enabled
-        if (g_eqEnabled) {
-            for (int i = 0; i < numSamples; ++i) {
-                for (int ch = 0; ch < channels && ch < 2; ++ch) {
-                    int idx = i * channels + ch;
-                    float s = outBlock[idx];
-                    s = g_callHpf.process(s, ch);
-                    s = g_callWarmth.process(s, ch);
-                    s = g_callDebox.process(s, ch);
-                    s = g_callAir.process(s, ch);
-                    outBlock[idx] = s;
-                }
-            }
-        }
-
-        // Apply Broadcast Compressor & Warm Analog Tube Saturation
-        if (g_compressorEnabled || g_tubeEnabled) {
-            for (int i = 0; i < numSamples; ++i) {
-                for (int ch = 0; ch < channels && ch < 2; ++ch) {
-                    int idx = i * channels + ch;
-                    float val = g_callCompressor.processSample(outBlock[idx], ch, g_compressorEnabled, g_tubeEnabled);
-                    if (val > 32767.0f) val = 32767.0f;
-                    else if (val < -32768.0f) val = -32768.0f;
-                    samples[idx] = (short)val;
-                }
-            }
-        } else {
-            const float gain = 1.15f; // +1.2 dB clean broadcast presence
-            for (int i = 0; i < totalSamples; ++i) {
-                float val = outBlock[i] * gain;
-                if (val > 30000.0f) {
-                    val = 30000.0f + 2767.0f * tanhf((val - 30000.0f) / 2767.0f);
-                } else if (val < -30000.0f) {
-                    val = -30000.0f + 2768.0f * tanhf((val + 30000.0f) / 2768.0f);
-                }
-                samples[i] = (short)val;
+        for (int i = 0; i < numSamples; ++i) {
+            for (int ch = 0; ch < channels; ++ch) {
+                int idx = i * channels + ch;
+                samples[idx] = process_call_sample(outBlock[idx], ch);
             }
         }
     } else {
@@ -1121,7 +1099,6 @@ void soundtouch_clear_call(void) {
     g_callSampleRate = 0;
     g_callChannels = 0;
     g_callPitch = 0.0f;
-    g_callTempo = 1.0f;
     g_callPreset = -1;
 }
 

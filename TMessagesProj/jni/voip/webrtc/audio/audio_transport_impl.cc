@@ -27,23 +27,16 @@ namespace webrtc {
 
 namespace {
 
-// We want to process at the lowest sample rate and channel count possible
-// without losing information. Choose the lowest native rate at least equal to
-// the minimum of input and codec rates, choose lowest channel count, and
-// configure the audio frame.
-void InitializeCaptureFrame(int input_sample_rate,
-                            int send_sample_rate_hz,
+// Use the voice-note DSP rate and the lowest negotiated channel count.
+void InitializeCaptureFrame(int /*input_sample_rate*/,
+                            int /*send_sample_rate_hz*/,
                             size_t input_num_channels,
                             size_t send_num_channels,
                             AudioFrame* audio_frame) {
   RTC_DCHECK(audio_frame);
-  int min_processing_rate_hz = std::min(input_sample_rate, send_sample_rate_hz);
-  for (int native_rate_hz : AudioProcessing::kNativeSampleRatesHz) {
-    audio_frame->sample_rate_hz_ = native_rate_hz;
-    if (audio_frame->sample_rate_hz_ >= min_processing_rate_hz) {
-      break;
-    }
-  }
+  // Match voice-note DSP, including its 9 kHz studio EQ. Capture is resampled
+  // below before processing; the sender can still use its negotiated codec rate.
+  audio_frame->sample_rate_hz_ = 48000;
   audio_frame->num_channels_ = std::min(input_num_channels, send_num_channels);
 }
 

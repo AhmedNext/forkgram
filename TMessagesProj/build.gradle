@@ -10,6 +10,7 @@ idea {
     module {
         excludeDirs += [
             file('jni/td'),
+            file('jni/third_party/absl'),
             file('jni/third_party/boringssl'),
             file('jni/third_party/dav1d'),
             file('jni/third_party/ffmpeg'),
@@ -17,6 +18,10 @@ idea {
             file('jni/third_party/libyuv'),
             file('jni/third_party/openh264'),
             file('jni/third_party/xiph'),
+            file('jni/third_party/wamr'),
+            file('jni/third_party/libprisma'),
+            file('jni/third_party/boost-regex'),
+            file('jni/tgcalls'),
             file('jni/tlottie'),
             file('jni/voip/webrtc'),
             file('jni/sqlite')
@@ -54,6 +59,7 @@ dependencies {
 
     implementation "androidx.mediarouter:mediarouter:1.7.0"
     implementation 'com.google.zxing:core:3.5.4'
+    implementation 'com.neovisionaries:nv-websocket-client:2.14'
 
     implementation 'androidx.car.app:app:1.4.0'
     implementation 'androidx.car.app:app-projected:1.4.0'
@@ -112,6 +118,7 @@ android {
     buildToolsVersion '36.0.0'
     ndkVersion "27.2.12479018"
 
+
     externalNativeBuild {
         cmake {
             path 'jni/CMakeLists.txt'
@@ -142,7 +149,7 @@ android {
     defaultConfig.versionCode = Integer.parseInt(Utils['getVersionCode']())
 
     defaultConfig {
-        minSdkVersion 21
+        minSdkVersion 23
         targetSdkVersion 36
 
         vectorDrawables.generatedDensities = ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi']
@@ -287,8 +294,7 @@ task buildNativeDeps(description: 'Build native dependencies.') {
             println "NDK Directory: ${ndkDir}"
             println "Working Directory: ${projectDir}/jni"
             workingDir "${projectDir}/jni"
-            def targetArches = project.hasProperty('arm64-v8a') ? ['arm64'] : (project.hasProperty('armeabi-v7a') ? ['arm'] : ['arm', 'arm64'])
-            commandLine(['python3', 'prepare.py', 'silent', 'ndk=' + ndkDir] + targetArches)
+            commandLine 'python3', 'prepare.py', 'silent', 'ndk=' + ndkDir, 'arm', 'arm64'
         }
     }
 }

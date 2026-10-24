@@ -46,7 +46,10 @@ import org.telegram.messenger.forkgram.ForkOfflineTranslate;
 import org.telegram.messenger.forkgram.ForkSettingsLock;
 import org.telegram.messenger.forkgram.HiddenAccountHelper;
 import org.telegram.messenger.forkgram.LinkReplacements;
+import org.telegram.messenger.forkgram.QuickAttachConfig;
 import org.telegram.messenger.forkgram.SettingsBackup;
+import org.telegram.messenger.forkgram.WebPublishConfig;
+import org.telegram.messenger.forkgram.VoiceTimecodesConfig;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.ActionBarMenu;
 import org.telegram.ui.ActionBar.ActionBarMenuItem;
@@ -156,6 +159,10 @@ public class ForkSettingsActivity extends BaseFragment {
     public static final int ID_SATELLITE_DATA_SAVING = 86;
 
     public static final int ID_LASTFM_LOGIN = 90;
+
+    public static final int ID_WEB_PUBLISH = 101;
+    public static final int ID_VOICE_TIMECODES = 102;
+    public static final int ID_QUICK_ATTACH = 103;
 
     public static final int ID_EXPORT_SETTINGS = 95;
     public static final int ID_IMPORT_SETTINGS = 96;
@@ -375,6 +382,22 @@ public class ForkSettingsActivity extends BaseFragment {
     private String getHiddenAccountsText() {
         int hiddenCount = HiddenAccountHelper.getHiddenAccountsCount();
         return hiddenCount > 0 ? Integer.toString(hiddenCount) : LocaleController.getString(R.string.PasswordOff);
+    }
+
+    private String getWebPublishText() {
+        String base = WebPublishConfig.base().trim();
+        if (base.isEmpty()) {
+            return LocaleController.getString(R.string.PasswordOff);
+        }
+        return base;
+    }
+
+    private String getVoiceTimecodesText() {
+        if (!VoiceTimecodesConfig.isEnabled()) {
+            return LocaleController.getString(R.string.PasswordOff);
+        }
+        String model = VoiceTimecodesConfig.llmModel();
+        return model.isEmpty() ? LocaleController.getString(R.string.PasswordOn) : model;
     }
 
     @Override
@@ -711,11 +734,13 @@ public class ForkSettingsActivity extends BaseFragment {
             .setChecked(pref("disablePlayVisibleVideoOnVolume", false)).setMultiline(true));
         items.add(UItem.asButtonCheck(ID_DISABLE_RECENT_FILES_ATTACHMENT, LocaleController.getString(R.string.DisableRecentFilesAttachment), LocaleController.getString(R.string.DisableRecentFilesAttachmentInfo))
             .setChecked(pref("disableRecentFilesAttachment", false)).setMultiline(true));
+        items.add(UItem.asSettingsCell(ID_QUICK_ATTACH, LocaleController.getString(R.string.QuickAttach),
+            QuickAttachConfig.isEnabled() ? LocaleController.getString(R.string.PasswordOn) : LocaleController.getString(R.string.PasswordOff)));
         items.add(UItem.asShadow(null));
 
         items.add(UItem.asHeader(LocaleController.getString(R.string.ForkSectionVoice)));
         items.add(UItem.asSettingsCell(ID_VOCAL_PROFILE, LocaleController.isRTL ? "بروفايل معالجة الصوت المباشر" : "Live Vocal Processing Profile", getVocalProfileText()));
-        items.add(UItem.asSettingsCell(ID_VOICE_TEMPO, LocaleController.isRTL ? "سرعة ونبرة الإلقاء الصوتي (Tempo)" : "Speaking Delivery Tempo", getVoiceTempoText()));
+        items.add(UItem.asSettingsCell(ID_VOICE_TEMPO, LocaleController.isRTL ? "سرعة الرسائل الصوتية" : "Voice Note Speed", getVoiceTempoText()));
         items.add(UItem.asSettingsCell(ID_VOICE_PITCH, LocaleController.isRTL ? "درجة طبقة وخامة الصوت (Pitch Shift)" : "Voice Pitch Shift (Semitones)", getVoicePitchText()));
         items.add(UItem.asSettingsCell(ID_VOICE_GAIN, LocaleController.isRTL ? "مستوى كسب وحساسية الميكروفون" : "Microphone Gain Adjustment", getVoiceGainText()));
         items.add(UItem.asButtonCheck(ID_DISABLE_AUTOPLAY_NEXT_VOICE, LocaleController.getString(R.string.DisableAutoplayNextVoice), LocaleController.getString(R.string.DisableAutoplayNextVoiceInfo))
@@ -765,6 +790,14 @@ public class ForkSettingsActivity extends BaseFragment {
             items.add(UItem.asSettingsCell(ID_LASTFM_LOGIN, R.drawable.ic_lastfm, "Last.fm"));
             items.add(UItem.asShadow(null));
         }
+
+        items.add(UItem.asHeader(LocaleController.getString(R.string.WebPublishSection)));
+        items.add(UItem.asSettingsCell(ID_WEB_PUBLISH, LocaleController.getString(R.string.WebPublish), getWebPublishText()));
+        items.add(UItem.asShadow(LocaleController.getString(R.string.WebPublishInfo)));
+
+        items.add(UItem.asHeader(LocaleController.getString(R.string.VoiceTimecodesSection)));
+        items.add(UItem.asSettingsCell(ID_VOICE_TIMECODES, LocaleController.getString(R.string.VoiceTimecodes), getVoiceTimecodesText()));
+        items.add(UItem.asShadow(LocaleController.getString(R.string.VoiceTimecodesInfo)));
 
         items.add(UItem.asHeader(LocaleController.getString(R.string.ForkSectionBackup)));
         items.add(UItem.asSettingsCell(ID_EXPORT_SETTINGS, LocaleController.getString(R.string.ExportSettings), ""));
@@ -906,6 +939,8 @@ public class ForkSettingsActivity extends BaseFragment {
             toggle("disablePlayVisibleVideoOnVolume", item, view);
         } else if (id == ID_DISABLE_RECENT_FILES_ATTACHMENT) {
             toggle("disableRecentFilesAttachment", item, view);
+        } else if (id == ID_QUICK_ATTACH) {
+            presentFragment(new QuickAttachSettingsActivity());
 
         } else if (id == ID_VOCAL_PROFILE) {
             showVocalProfileDialog();
@@ -969,6 +1004,12 @@ public class ForkSettingsActivity extends BaseFragment {
 
         } else if (id == ID_LASTFM_LOGIN) {
             presentFragment(new LastFmLoginActivity());
+
+        } else if (id == ID_WEB_PUBLISH) {
+            presentFragment(new WebPublishSettingsActivity());
+
+        } else if (id == ID_VOICE_TIMECODES) {
+            presentFragment(new VoiceTimecodesSettingsActivity());
 
         } else if (id == ID_EXPORT_SETTINGS) {
             exportSettings();

@@ -29,6 +29,7 @@ android {
 
     defaultConfig.applicationId = APP_PACKAGE
 
+
     lintOptions {
         disable 'MissingTranslation'
         disable 'ExtraTranslation'
@@ -63,6 +64,12 @@ android {
         }
     }
 
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     buildTypes {
         debug {
             debuggable true
@@ -71,7 +78,7 @@ android {
             applicationIdSuffix ".web"
             minifyEnabled false
             multiDexEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), '../TMessagesProj/proguard-rules.pro', '../TMessagesProj/proguard-rules-beta.pro'
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), '../TMessagesProj/proguard-rules.pro'
             ndk.debugSymbolLevel = 'FULL'
         }
         standalone {
@@ -128,7 +135,7 @@ android {
     }
 
     defaultConfig {
-        minSdkVersion 21
+        minSdkVersion 23
         targetSdkVersion 36
         versionName APP_VERSION_NAME
         ndkVersion "27.2.12479018"

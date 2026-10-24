@@ -1,0 +1,171 @@
+--- a/tgcalls/MediaManager.cpp
++++ b/tgcalls/MediaManager.cpp
+@@ -360,7 +360,9 @@
+ 
+         cricket::AudioOptions audioOptions;
+         audioOptions.echo_cancellation = true;
+-        audioOptions.noise_suppression = true;
++        audioOptions.noise_suppression = false;
++        audioOptions.auto_gain_control = false;
++        audioOptions.highpass_filter = false;
+         audioOptions.audio_jitter_buffer_fast_accelerate = true;
+ 
+         std::vector<std::string> streamIds;
+@@ -377,9 +379,9 @@
+         const char *opusSdpName = "opus";
+         const uint8_t opusSdpChannels = 2;
+ 
+-        const uint8_t opusMinBitrateKbps = 6;
+-        const uint8_t opusMaxBitrateKbps = 32;
+-        const uint8_t opusStartBitrateKbps = 8;
++        const uint8_t opusMinBitrateKbps = 32;
++        const uint8_t opusMaxBitrateKbps = 128;
++        const uint8_t opusStartBitrateKbps = 128;
+         const uint8_t opusPTimeMs = 120;
+         cricket::AudioCodec opusCodec = cricket::CreateAudioCodec(opusSdpPayload, opusSdpName, opusClockrate, opusSdpChannels);
+         opusCodec.AddFeedbackParam(cricket::FeedbackParam(cricket::kRtcpFbParamTransportCc));
+@@ -397,9 +399,10 @@
+         audioSendPrameters.options.auto_gain_control = false;
+     #else
+         audioSendPrameters.options.echo_cancellation = true;
+-        audioSendPrameters.options.auto_gain_control = true;
++        audioSendPrameters.options.auto_gain_control = false;
+     #endif
+-        audioSendPrameters.options.noise_suppression = true;
++        audioSendPrameters.options.noise_suppression = false;
++        audioSendPrameters.options.highpass_filter = false;
+         audioSendPrameters.rtcp.reduced_size = true;
+         audioSendPrameters.rtcp.remote_estimate = true;
+         _audioSendChannel->SetSenderParameters(audioSendPrameters);
+@@ -858,11 +861,8 @@
+ }
+ 
+ int MediaManager::getMaxAudioBitrate() const {
+-    if (_isDataSavingActive) {
+-        return 16000;
+-    } else {
+-        return 32000;
+-    }
++    // Match the voice-note quality target; congestion control can adapt below it.
++    return 128000;
+ }
+ 
+ void MediaManager::adjustBitratePreferences(bool resetStartBitrate) {
+@@ -887,15 +887,15 @@
+         if (_didConfigureVideo) {
+             // After we have configured outgoing video, RTCP stops working for outgoing audio
+             // TODO: investigate
+-            preferences.min_bitrate_bps = 16000;
++            preferences.min_bitrate_bps = 32000;
+             if (resetStartBitrate) {
+-                preferences.start_bitrate_bps = 16000;
+-            }
+-            preferences.max_bitrate_bps = 32000;
++                preferences.start_bitrate_bps = 128000;
++            }
++            preferences.max_bitrate_bps = 128000;
+         } else {
+-            preferences.min_bitrate_bps = 8000;
++            preferences.min_bitrate_bps = 32000;
+             if (resetStartBitrate) {
+-                preferences.start_bitrate_bps = 16000;
++                preferences.start_bitrate_bps = 128000;
+             }
+             preferences.max_bitrate_bps = getMaxAudioBitrate();
+         }
+--- a/tgcalls/group/GroupInstanceCustomImpl.cpp
++++ b/tgcalls/group/GroupInstanceCustomImpl.cpp
+@@ -1948,18 +1948,10 @@
+         }
+ 
+         cricket::AudioOptions audioOptions;
+-        if (_disableOutgoingAudioProcessing || _videoContentType == VideoContentType::Screencast) {
+-            audioOptions.echo_cancellation = false;
+-            audioOptions.noise_suppression = false;
+-            audioOptions.auto_gain_control = false;
+-            audioOptions.highpass_filter = false;
+-            //audioOptions.typing_detection = false;
+-            //audioOptions.residual_echo_detector = false;
+-        } else {
+-            audioOptions.echo_cancellation = true;
+-            audioOptions.noise_suppression = true;
+-            //audioOptions.residual_echo_detector = true;
+-        }
++        audioOptions.echo_cancellation = true;
++        audioOptions.noise_suppression = false;
++        audioOptions.auto_gain_control = false;
++        audioOptions.highpass_filter = false;
+ 
+         std::vector<std::string> streamIds;
+         streamIds.push_back("1");
+@@ -1969,9 +1961,9 @@
+             _outgoingAudioChannel->SetRtpTransport(_rtpTransport);
+         });
+ 
+-        const uint8_t opusMinBitrateKbps = _outgoingAudioBitrateKbit;
+-        const uint8_t opusMaxBitrateKbps = _outgoingAudioBitrateKbit;
+-        const uint8_t opusStartBitrateKbps = _outgoingAudioBitrateKbit;
++        const uint8_t opusMinBitrateKbps = std::max<uint8_t>(32, _outgoingAudioBitrateKbit);
++        const uint8_t opusMaxBitrateKbps = std::max<uint8_t>(128, _outgoingAudioBitrateKbit);
++        const uint8_t opusStartBitrateKbps = std::max<uint8_t>(128, _outgoingAudioBitrateKbit);
+         const uint8_t opusPTimeMs = 120;
+ 
+         cricket::AudioCodec opusCodec = cricket::CreateAudioCodec(111, "opus", 48000, 2);
+@@ -2448,9 +2440,9 @@
+         } else {
+             preferences.min_bitrate_bps = 32000;
+             if (resetStartBitrate) {
+-                preferences.start_bitrate_bps = 32000;
+-            }
+-            preferences.max_bitrate_bps = 32000;
++                preferences.start_bitrate_bps = 128000;
++            }
++            preferences.max_bitrate_bps = 128000;
+         }
+ 
+         settings.min_bitrate_bps = preferences.min_bitrate_bps;
+--- a/tgcalls/v2/InstanceV2Impl.cpp
++++ b/tgcalls/v2/InstanceV2Impl.cpp
+@@ -130,19 +130,10 @@
+     _channelManager(channelManager),
+     _audioSource(audioSource) {
+         cricket::AudioOptions audioOptions;
+-        bool _disableOutgoingAudioProcessing = false;
+-
+-        if (_disableOutgoingAudioProcessing) {
+-            audioOptions.echo_cancellation = false;
+-            audioOptions.noise_suppression = false;
+-            audioOptions.auto_gain_control = false;
+-            audioOptions.highpass_filter = false;
+-            //audioOptions.typing_detection = false;
+-            //audioOptions.residual_echo_detector = false;
+-        } else {
+-            audioOptions.echo_cancellation = true;
+-            audioOptions.noise_suppression = true;
+-        }
++        audioOptions.echo_cancellation = true;
++        audioOptions.noise_suppression = false;
++        audioOptions.auto_gain_control = false;
++        audioOptions.highpass_filter = false;
+ 
+         const auto contentId = std::to_string(_ssrc);
+ 
+@@ -161,6 +152,9 @@
+ 
+                 codec.SetParam(cricket::kCodecParamUseInbandFec, 1);
+                 codec.SetParam(cricket::kCodecParamPTime, 60);
++                codec.SetParam(cricket::kCodecParamMinBitrate, 32);
++                codec.SetParam(cricket::kCodecParamStartBitrate, 128);
++                codec.SetParam(cricket::kCodecParamMaxBitrate, 128);
+ 
+                 for (const auto &feedbackType : payloadType.feedbackTypes) {
+                     codec.AddFeedbackParam(cricket::FeedbackParam(feedbackType.type, feedbackType.subtype));
+@@ -2146,7 +2140,7 @@
+ 
+     void adjustBitratePreferences(bool resetStartBitrate) {
+         if (_outgoingAudioChannel) {
+-            _outgoingAudioChannel->setMaxBitrate(32 * 1024);
++            _outgoingAudioChannel->setMaxBitrate(128000);
+         }
+         if (_outgoingVideoChannel) {
+             _outgoingVideoChannel->setMaxBitrate(1000 * 1024);

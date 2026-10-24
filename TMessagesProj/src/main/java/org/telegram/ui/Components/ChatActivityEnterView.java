@@ -322,6 +322,18 @@ public class ChatActivityEnterView extends FrameLayout implements
 
         void didPressAttachButton();
 
+        default boolean canQuickAttach() {
+            return true;
+        }
+
+        default void onStartQuickAttach(View attachButton, float touchX, float touchY) {}
+
+        default void onQuickAttachTracking(float touchX, float touchY) {}
+
+        default void onQuickAttachFinish(float touchX, float touchY) {}
+
+        default void onQuickAttachCancel() {}
+
         default void didPressStreamingStop() {}
 
         default void didPressSuggestionButton() {}
@@ -627,6 +639,7 @@ public class ChatActivityEnterView extends FrameLayout implements
     private RLottieImageView recordDeleteImageView;
     protected RecordedAudioPlayerView audioTimelineView;
     private long millisecondsRecorded;
+    private boolean roundVideoUiFrameClockActive;
     @Nullable
     private SlideTextView slideText;
     @Nullable
@@ -979,6 +992,8 @@ public class ChatActivityEnterView extends FrameLayout implements
         boolean playing;
         RLottieDrawable drawable;
         private boolean enterAnimation;
+        private boolean externalFrameClock;
+        private long externalBlinkStartMs = -1L;
 
         @Override
         protected void onAttachedToWindow() {
@@ -1009,22 +1024,51 @@ public class ChatActivityEnterView extends FrameLayout implements
         public void updateColors() {
             int dotColor = getThemedColor(Theme.key_chat_recordedVoiceDot);
             int background = getThemedColor(Theme.key_chat_messagePanelBackground);
+            int greyColor = getThemedColor(Theme.key_chat_messagePanelVoiceDelete);
             redDotPaint.setColor(dotColor);
             drawable.beginApplyLayerColors();
             drawable.setLayerColor("Cup Red", dotColor);
-            drawable.setLayerColor("Box", dotColor);
-            drawable.setLayerColor("Line 1", background);
-            drawable.setLayerColor("Line 2", background);
-            drawable.setLayerColor("Line 3", background);
+            drawable.setLayerColor("Box Red", dotColor);
+            drawable.setLayerColor("Cup Grey", greyColor);
+            drawable.setLayerColor("Box Grey", greyColor);
+            drawable.setLayerColor("Box_Grey 2", greyColor);
+            drawable.setLayerColor("Line 1", greyColor);
+            drawable.setLayerColor("Line 2", greyColor);
+            drawable.setLayerColor("Line 3", greyColor);
+            drawable.setLayerColor("Line 1 Dup", background);
+            drawable.setLayerColor("Line 2 Dup", background);
+            drawable.setLayerColor("Line 3 Dup", background);
             drawable.commitApplyLayerColors();
         }
 
         public void resetAlpha() {
             alpha = 1.0f;
             lastUpdateTime = System.currentTimeMillis();
+            externalBlinkStartMs = -1L;
             isIncr = false;
             playing = false;
             drawable.stop();
+            invalidate();
+        }
+
+        void setExternalFrameClock(boolean enabled) {
+            externalFrameClock = enabled;
+            lastUpdateTime = System.currentTimeMillis();
+            externalBlinkStartMs = -1L;
+            invalidate();
+        }
+
+        void onExternalFrame(long durationMs) {
+            if (!externalFrameClock) return;
+            if (enterAnimation || externalBlinkStartMs < 0L) {
+                externalBlinkStartMs = durationMs;
+                alpha = 1f;
+            } else if (!playing) {
+                long phaseMs = Math.max(0L, durationMs - externalBlinkStartMs) % 1200L;
+                alpha = phaseMs < 600L
+                        ? 1f - phaseMs / 600f
+                        : (phaseMs - 600L) / 600f;
+            }
             invalidate();
         }
 
@@ -1041,32 +1085,35 @@ public class ChatActivityEnterView extends FrameLayout implements
             }
             redDotPaint.setAlpha((int) (255 * alpha));
 
-            long dt = (System.currentTimeMillis() - lastUpdateTime);
-            if (enterAnimation) {
-                alpha = 1;
-            } else {
-                if (!isIncr && !playing) {
-                    alpha -= dt / 600.0f;
-                    if (alpha <= 0) {
-                        alpha = 0;
-                        isIncr = true;
-                    }
+            if (!externalFrameClock) {
+                long now = System.currentTimeMillis();
+                long dt = now - lastUpdateTime;
+                if (enterAnimation) {
+                    alpha = 1;
                 } else {
-                    alpha += dt / 600.0f;
-                    if (alpha >= 1) {
-                        alpha = 1;
-                        isIncr = false;
+                    if (!isIncr && !playing) {
+                        alpha -= dt / 600.0f;
+                        if (alpha <= 0) {
+                            alpha = 0;
+                            isIncr = true;
+                        }
+                    } else {
+                        alpha += dt / 600.0f;
+                        if (alpha >= 1) {
+                            alpha = 1;
+                            isIncr = false;
+                        }
                     }
                 }
+                lastUpdateTime = now;
             }
-            lastUpdateTime = System.currentTimeMillis();
             if (playing) {
                 drawable.draw(canvas);
             }
             if (!playing || !drawable.hasBitmap()) {
                 canvas.drawCircle(this.getMeasuredWidth() >> 1, this.getMeasuredHeight() >> 1, dp(5), redDotPaint);
             }
-            invalidate();
+            if (!externalFrameClock) invalidate();
         }
 
         public void playDeleteAnimation() {
@@ -2797,9 +2844,98 @@ public class ChatActivityEnterView extends FrameLayout implements
             }
 
             attachButton = new ImageView(context) {
+                private float downX;
+                private float downY;
+                private boolean quickAttachStarted;
+                private final Runnable quickAttachRunnable = new Runnable() {
+                    @Override
+                    public void run() {
+                        boolean can = delegate != null && delegate.canQuickAttach();
+                        FileLog.d("QuickAttach: quickAttachRunnable firing, canQuickAttach=" + can);
+                        if (can) {
+                            quickAttachStarted = true;
+                            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+                            if (getParent() != null) {
+                                getParent().requestDisallowInterceptTouchEvent(true);
+                            }
+                            delegate.onStartQuickAttach(attachButton, downX, downY);
+                        }
+                    }
+                };
+
                 @Override
                 public boolean dispatchTouchEvent(MotionEvent event) {
                     if (getAlpha() < 0.5f) return false;
+                    int action = event.getActionMasked();
+                    switch (action) {
+                        case MotionEvent.ACTION_DOWN:
+                            downX = event.getRawX();
+                            downY = event.getRawY();
+                            quickAttachStarted = false;
+                            if (getParent() != null) {
+                                getParent().requestDisallowInterceptTouchEvent(true);
+                            }
+                            MediaController.loadGalleryPhotosAlbums(0);
+                            AndroidUtilities.runOnUIThread(quickAttachRunnable, 180);
+                            setPressed(true);
+                            FileLog.d("QuickAttach: attachButton DOWN at " + downX + ", " + downY);
+                            return true;
+                        case MotionEvent.ACTION_MOVE:
+                            if (quickAttachStarted) {
+                                if (getParent() != null) {
+                                    getParent().requestDisallowInterceptTouchEvent(true);
+                                }
+                                if (delegate != null) {
+                                    delegate.onQuickAttachTracking(event.getRawX(), event.getRawY());
+                                }
+                                return true;
+                            } else {
+                                float dx = Math.abs(event.getRawX() - downX);
+                                float dy = Math.abs(event.getRawY() - downY);
+                                if (dx > AndroidUtilities.dp(24) || dy > AndroidUtilities.dp(24)) {
+                                    FileLog.d("QuickAttach: attachButton MOVE exceeded slop dx=" + dx + ", dy=" + dy);
+                                    AndroidUtilities.cancelRunOnUIThread(quickAttachRunnable);
+                                    setPressed(false);
+                                }
+                            }
+                            break;
+                        case MotionEvent.ACTION_UP:
+                            AndroidUtilities.cancelRunOnUIThread(quickAttachRunnable);
+                            setPressed(false);
+                            if (quickAttachStarted) {
+                                quickAttachStarted = false;
+                                FileLog.d("QuickAttach: attachButton UP finished tracking at " + event.getRawX() + ", " + event.getRawY());
+                                if (delegate != null) {
+                                    delegate.onQuickAttachFinish(event.getRawX(), event.getRawY());
+                                }
+                                return true;
+                            } else {
+                                float dx = Math.abs(event.getRawX() - downX);
+                                float dy = Math.abs(event.getRawY() - downY);
+                                if (dx <= AndroidUtilities.dp(24) && dy <= AndroidUtilities.dp(24)) {
+                                    if (adjustPanLayoutHelper != null && adjustPanLayoutHelper.animationInProgress() || attachLayoutPaddingAlpha == 0f) {
+                                        return true;
+                                    }
+                                    if (delegate != null) {
+                                        FileLog.d("QuickAttach: attachButton regular tap");
+                                        delegate.didPressAttachButton();
+                                    }
+                                }
+                                return true;
+                            }
+                        case MotionEvent.ACTION_CANCEL:
+                            AndroidUtilities.cancelRunOnUIThread(quickAttachRunnable);
+                            setPressed(false);
+                            FileLog.d("QuickAttach: attachButton CANCEL");
+                            if (quickAttachStarted) {
+                                quickAttachStarted = false;
+                                if (delegate != null) {
+                                    delegate.onQuickAttachCancel();
+                                }
+                                return true;
+                            }
+                            break;
+                    }
                     return super.dispatchTouchEvent(event);
                 }
             };
@@ -2808,12 +2944,6 @@ public class ChatActivityEnterView extends FrameLayout implements
             attachButton.setImageResource(R.drawable.msg_input_attach2);
             attachButton.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector)));
             messageEditTextContainer.addView(attachButton, LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.RIGHT));
-            attachButton.setOnClickListener(v -> {
-                if (adjustPanLayoutHelper != null && adjustPanLayoutHelper.animationInProgress() || attachLayoutPaddingAlpha == 0f) {
-                    return;
-                }
-                delegate.didPressAttachButton();
-            });
             attachButton.setContentDescription(getString(R.string.AccDescrAttachButton));
             updateFieldRight(1);
         }
@@ -10589,10 +10719,13 @@ public class ChatActivityEnterView extends FrameLayout implements
             recordDeleteImageView.setLayerColor("Box Red", dotColor);
             recordDeleteImageView.setLayerColor("Cup Grey", greyColor);
             recordDeleteImageView.setLayerColor("Box Grey", greyColor);
-
-            recordDeleteImageView.setLayerColor("Line 1", background);
-            recordDeleteImageView.setLayerColor("Line 2", background);
-            recordDeleteImageView.setLayerColor("Line 3", background);
+            recordDeleteImageView.setLayerColor("Box_Grey 2", greyColor);
+            recordDeleteImageView.setLayerColor("Line 1", greyColor);
+            recordDeleteImageView.setLayerColor("Line 2", greyColor);
+            recordDeleteImageView.setLayerColor("Line 3", greyColor);
+            recordDeleteImageView.setLayerColor("Line 1 Dup", background);
+            recordDeleteImageView.setLayerColor("Line 2 Dup", background);
+            recordDeleteImageView.setLayerColor("Line 3 Dup", background);
         }
     }
 
@@ -10633,6 +10766,31 @@ public class ChatActivityEnterView extends FrameLayout implements
             return;
         }
         messageEditText.setSelection(start, messageEditText.length());
+    }
+
+    /** Synchronizes the video timeline with an external trim control. */
+    public void setVideoTimelineTrim(float start, float end) {
+        if (videoTimelineView != null) {
+            videoTimelineView.setTrimProgress(start, end);
+        }
+    }
+
+    /** Selects camera-preview-driven animation ticks for the new round-video recorder. */
+    public void setRoundVideoUiFrameClockActive(boolean active) {
+        if (roundVideoUiFrameClockActive == active) return;
+        roundVideoUiFrameClockActive = active;
+        if (recordTimerView != null) recordTimerView.setExternalFrameClock(active);
+        if (recordDot != null) recordDot.setExternalFrameClock(active);
+        if (slideText != null) slideText.setExternalFrameClock(active);
+    }
+
+    /** Advances recording UI on the frame consumed by the camera preview TextureView. */
+    public void onRoundVideoUiFrame(long durationMs) {
+        if (!roundVideoUiFrameClockActive) return;
+        millisecondsRecorded = durationMs;
+        if (recordTimerView != null) recordTimerView.onExternalFrame(durationMs);
+        if (recordDot != null) recordDot.onExternalFrame(durationMs);
+        if (slideText != null) slideText.onExternalFrame();
     }
 
     public int getCursorPosition() {
@@ -13297,6 +13455,13 @@ public class ChatActivityEnterView extends FrameLayout implements
         return emojiViewVisible || botKeyboardViewVisible;
     }
 
+    public boolean canHidePopupByBackButton() {
+        if (!isPopupShowing()) {
+            return false;
+        }
+        return !(currentPopupContentType == POPUP_CONTENT_BOT_KEYBOARD && botReplyMarkup != null && botReplyMarkup.is_persistent && botButtonsMessageObject != null);
+    }
+
     public boolean closeCreationLinkDialog(boolean invoked) {
         return messageEditText != null && messageEditText.closeCreationLinkDialog(invoked);
     }
@@ -14170,7 +14335,18 @@ public class ChatActivityEnterView extends FrameLayout implements
         StaticLayout cancelLayout;
 
         private boolean pressed;
+        private boolean externalFrameClock;
         public Rect cancelRect = new Rect();
+
+        void setExternalFrameClock(boolean enabled) {
+            externalFrameClock = enabled;
+            lastUpdateTime = System.currentTimeMillis();
+            invalidate();
+        }
+
+        void onExternalFrame() {
+            if (externalFrameClock && cancelToProgress != 1f) invalidate();
+        }
 
         Drawable selectableBackground;
         private int lastSize;
@@ -14396,7 +14572,7 @@ public class ChatActivityEnterView extends FrameLayout implements
                 setPressed(false);
             }
 
-            if (cancelToProgress != 1) {
+            if (cancelToProgress != 1 && !externalFrameClock) {
                 invalidate();
             }
         }
@@ -14423,6 +14599,9 @@ public class ChatActivityEnterView extends FrameLayout implements
         long startTime;
         long stopTime;
         long lastSendTypingTime;
+        long externalElapsedMs;
+        long lastDrawRealtimeMs;
+        boolean externalFrameClock;
 
         SpannableStringBuilder replaceIn = new SpannableStringBuilder();
         SpannableStringBuilder replaceOut = new SpannableStringBuilder();
@@ -14464,10 +14643,23 @@ public class ChatActivityEnterView extends FrameLayout implements
         public void start(long milliseconds) {
             isRunning = true;
             startTime = System.currentTimeMillis() - milliseconds;
+            externalElapsedMs = milliseconds;
             lastSendTypingTime = startTime;
             invalidate();
             timestamps.clear();
             timestamps.add("0:00");
+        }
+
+        void setExternalFrameClock(boolean enabled) {
+            externalFrameClock = enabled;
+            lastDrawRealtimeMs = SystemClock.elapsedRealtime();
+            invalidate();
+        }
+
+        void onExternalFrame(long durationMs) {
+            if (!externalFrameClock) return;
+            externalElapsedMs = durationMs;
+            invalidate();
         }
 
         public void stop() {
@@ -14491,7 +14683,9 @@ public class ChatActivityEnterView extends FrameLayout implements
                 textPaint.setColor(getThemedColor(Theme.key_chat_recordTime));
             }
             long currentTimeMillis = System.currentTimeMillis();
-            long t = isRunning ? (currentTimeMillis - startTime) : stopTime - startTime;
+            long t = isRunning
+                    ? externalFrameClock ? externalElapsedMs : currentTimeMillis - startTime
+                    : stopTime - startTime;
             long time = t / 1000;
             int ms = (int) (t % 1000L) / 10;
 
@@ -14579,8 +14773,13 @@ public class ChatActivityEnterView extends FrameLayout implements
                 }
             }
 
+            long drawRealtimeMs = SystemClock.elapsedRealtime();
+            long drawDeltaMs = lastDrawRealtimeMs == 0L
+                    ? 16L
+                    : Math.min(50L, drawRealtimeMs - lastDrawRealtimeMs);
+            lastDrawRealtimeMs = drawRealtimeMs;
             if (replaceTransition != 0) {
-                replaceTransition -= 0.15f;
+                replaceTransition -= drawDeltaMs / 116f;
                 if (replaceTransition < 0f) {
                     replaceTransition = 0f;
                 }
@@ -14625,7 +14824,7 @@ public class ChatActivityEnterView extends FrameLayout implements
 
             oldString = newString;
 
-            if (isRunning || replaceTransition != 0) {
+            if ((isRunning || replaceTransition != 0) && !externalFrameClock) {
                 invalidate();
             }
         }
@@ -14643,6 +14842,8 @@ public class ChatActivityEnterView extends FrameLayout implements
         public void reset() {
             isRunning = false;
             stopTime = startTime = 0;
+            externalElapsedMs = 0;
+            lastDrawRealtimeMs = 0;
             stoppedInternal = false;
         }
     }

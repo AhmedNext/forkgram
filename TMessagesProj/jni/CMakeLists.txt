@@ -240,6 +240,7 @@ add_library(${NATIVE_LIB} SHARED
         soundtouch/InterpolateLinear.cpp
         soundtouch/InterpolateShannon.cpp
         soundtouch/cpu_detect_x86.cpp
+        soundtouch/sse_optimized.cpp
 )
 
 # Compile JNI directly into the shared library so archive extraction cannot drop its exports.

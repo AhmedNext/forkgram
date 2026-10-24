@@ -72,12 +72,9 @@ namespace soundtouch
     /// runtime performance so recommendation is to keep this off.
     // #define USE_MULTICH_ALWAYS
 
-    #if (defined(__SOFTFP__) && defined(ANDROID))
-        // For Android compilation: Force use of Integer samples in case that
-        // compilation uses soft-floating point emulation - soft-fp is way too slow
-        #undef  SOUNDTOUCH_FLOAT_SAMPLES
-        #define SOUNDTOUCH_INTEGER_SAMPLES      1
-    #endif
+    // Android ARMv7's soft-float calling convention does not imply software
+    // floating-point emulation. Keep the float sample format required by the
+    // Telegram PCM bridges on ARMv7 as well as ARM64.
 
     #if !(SOUNDTOUCH_INTEGER_SAMPLES || SOUNDTOUCH_FLOAT_SAMPLES)
 

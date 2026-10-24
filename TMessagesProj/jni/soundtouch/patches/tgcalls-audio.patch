@@ -1,5 +1,14 @@
 --- a/tgcalls/MediaManager.cpp
 +++ b/tgcalls/MediaManager.cpp
+@@ -290,7 +290,7 @@
+ 
+ 	webrtc::field_trial::InitFieldTrialsFromString(
+ 		"WebRTC-Audio-SendSideBwe/Enabled/"
+-		"WebRTC-Audio-Allocation/min:32kbps,max:32kbps/"
++		"WebRTC-Audio-Allocation/min:32kbps,max:128kbps/"
+ 		"WebRTC-Audio-OpusMinPacketLossRate/Enabled-1/"
+ 		"WebRTC-FlexFEC-03/Enabled/"
+ 		"WebRTC-FlexFEC-03-Advertised/Enabled/"
 @@ -360,7 +360,9 @@
  
          cricket::AudioOptions audioOptions;
@@ -11,7 +20,7 @@
          audioOptions.audio_jitter_buffer_fast_accelerate = true;
  
          std::vector<std::string> streamIds;
-@@ -377,10 +379,11 @@
+@@ -377,17 +379,21 @@
          const char *opusSdpName = "opus";
          const uint8_t opusSdpChannels = 2;
  
@@ -27,15 +36,17 @@
          cricket::AudioCodec opusCodec = cricket::CreateAudioCodec(opusSdpPayload, opusSdpName, opusClockrate, opusSdpChannels);
          opusCodec.AddFeedbackParam(cricket::FeedbackParam(cricket::kRtcpFbParamTransportCc));
          opusCodec.SetParam(cricket::kCodecParamMinBitrate, opusMinBitrateKbps);
-@@ -388,6 +391,7 @@
+         opusCodec.SetParam(cricket::kCodecParamStartBitrate, opusStartBitrateKbps);
          opusCodec.SetParam(cricket::kCodecParamMaxBitrate, opusMaxBitrateKbps);
++        // x-google bitrates configure transport; this sets the Opus encoder target.
++        opusCodec.SetParam(cricket::kCodecParamMaxAverageBitrate, 128000);
          opusCodec.SetParam(cricket::kCodecParamUseInbandFec, 1);
          opusCodec.SetParam(cricket::kCodecParamPTime, opusPTimeMs);
 +        opusCodec.SetParam(cricket::kCodecParamMaxPTime, opusPTimeMs);
  
          cricket::AudioSenderParameter audioSendPrameters;
          audioSendPrameters.codecs.push_back(opusCodec);
-@@ -397,9 +401,10 @@
+@@ -397,9 +403,10 @@
          audioSendPrameters.options.auto_gain_control = false;
      #else
          audioSendPrameters.options.echo_cancellation = true;
@@ -48,7 +59,7 @@
          audioSendPrameters.rtcp.reduced_size = true;
          audioSendPrameters.rtcp.remote_estimate = true;
          _audioSendChannel->SetSenderParameters(audioSendPrameters);
-@@ -858,11 +863,8 @@
+@@ -858,11 +865,8 @@
  }
  
  int MediaManager::getMaxAudioBitrate() const {
@@ -62,7 +73,7 @@
  }
  
  void MediaManager::adjustBitratePreferences(bool resetStartBitrate) {
-@@ -887,15 +889,15 @@
+@@ -887,15 +891,15 @@
          if (_didConfigureVideo) {
              // After we have configured outgoing video, RTCP stops working for outgoing audio
              // TODO: investigate
@@ -86,6 +97,15 @@
          }
 --- a/tgcalls/group/GroupInstanceCustomImpl.cpp
 +++ b/tgcalls/group/GroupInstanceCustomImpl.cpp
+@@ -1431,7 +1431,7 @@
+ 
+         webrtc::field_trial::InitFieldTrialsFromString(
+             "WebRTC-DataChannel-Dcsctp/Enabled/"
+-            "WebRTC-Audio-Allocation/min:32kbps,max:32kbps/"
++            "WebRTC-Audio-Allocation/min:32kbps,max:128kbps/"
+             "WebRTC-Audio-OpusMinPacketLossRate/Enabled-1/"
+             "WebRTC-TaskQueuePacer/Enabled/"
+             "WebRTC-VP8ConferenceTemporalLayers/1/"
 @@ -1948,18 +1948,10 @@
          }
  
@@ -109,7 +129,7 @@
  
          std::vector<std::string> streamIds;
          streamIds.push_back("1");
-@@ -1969,10 +1961,11 @@
+@@ -1969,18 +1961,22 @@
              _outgoingAudioChannel->SetRtpTransport(_rtpTransport);
          });
  
@@ -125,15 +145,18 @@
  
          cricket::AudioCodec opusCodec = cricket::CreateAudioCodec(111, "opus", 48000, 2);
          opusCodec.AddFeedbackParam(cricket::FeedbackParam(cricket::kRtcpFbParamTransportCc));
-@@ -1981,6 +1974,7 @@
+         opusCodec.SetParam(cricket::kCodecParamMinBitrate, opusMinBitrateKbps);
+         opusCodec.SetParam(cricket::kCodecParamStartBitrate, opusStartBitrateKbps);
          opusCodec.SetParam(cricket::kCodecParamMaxBitrate, opusMaxBitrateKbps);
++        // x-google bitrates configure transport; this sets the Opus encoder target.
++        opusCodec.SetParam(cricket::kCodecParamMaxAverageBitrate, 128000);
          opusCodec.SetParam(cricket::kCodecParamUseInbandFec, 1);
          opusCodec.SetParam(cricket::kCodecParamPTime, opusPTimeMs);
 +        opusCodec.SetParam(cricket::kCodecParamMaxPTime, opusPTimeMs);
  
          auto outgoingAudioDescription = std::make_unique<cricket::AudioContentDescription>();
          outgoingAudioDescription->AddRtpHeaderExtension(webrtc::RtpExtension(webrtc::RtpExtension::kAudioLevelUri, 1));
-@@ -2448,9 +2442,9 @@
+@@ -2448,9 +2444,9 @@
          } else {
              preferences.min_bitrate_bps = 32000;
              if (resetStartBitrate) {
@@ -172,17 +195,18 @@
  
          const auto contentId = std::to_string(_ssrc);
  
-@@ -161,6 +152,9 @@
+@@ -161,6 +152,10 @@
  
                  codec.SetParam(cricket::kCodecParamUseInbandFec, 1);
                  codec.SetParam(cricket::kCodecParamPTime, 60);
 +                codec.SetParam(cricket::kCodecParamMinBitrate, 32);
 +                codec.SetParam(cricket::kCodecParamStartBitrate, 128);
 +                codec.SetParam(cricket::kCodecParamMaxBitrate, 128);
++                codec.SetParam(cricket::kCodecParamMaxAverageBitrate, 128000);
  
                  for (const auto &feedbackType : payloadType.feedbackTypes) {
                      codec.AddFeedbackParam(cricket::FeedbackParam(feedbackType.type, feedbackType.subtype));
-@@ -2146,7 +2140,7 @@
+@@ -2146,7 +2141,7 @@
  
      void adjustBitratePreferences(bool resetStartBitrate) {
          if (_outgoingAudioChannel) {

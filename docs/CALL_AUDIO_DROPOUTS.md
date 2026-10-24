@@ -4,13 +4,17 @@ The user reports that outgoing voice quality is now good, but speech sometimes
 cuts to complete silence and returns. The test sends the Android phone's
 microphone to Telegram on Windows, heard through desktop headphones. A sudden
 lighter sound near the phone microphone preceded one observed dropout.
+After the 20 ms change, the user reported worse sound quality. No actual call
+trace has yet established the active backend, encoder bitrate, or packet loss.
 
-## Confirmed packetization defect
+## Packetization risk at 128 kbps
 
 The high-quality call configuration requests 128,000 bps while the legacy
 private-call `MediaManager` and group sender retain 120 ms Opus packets. This
-can produce packets too large for the transport. Raising the transport bitrate
-ceiling without reducing packet duration exposed this mismatch.
+can produce packets too large for the transport. The initial synthetic test
+forced the encoder to 128 kbps. It did not account for the separate 32 kbps
+allocation override discovered later, so it does not establish that oversized
+packets caused the reported phone-call dropouts.
 
 For legacy private calls, RTP follows `MediaManager::SendRtp` through
 `AudioDataMessage`, `Manager`, and `NetworkManager` into `EncryptedConnection`.
@@ -35,6 +39,38 @@ than 1,436 bytes. The oversized results above therefore establish rejection
 without relying on a guessed header size. Fast Ethernet or Wi-Fi does not
 prevent a packet from being rejected locally.
 
+## Follow-up: incomplete bitrate configuration
+
+The legacy private-call and group constructors still initialized the field trial
+`WebRTC-Audio-Allocation/min:32kbps,max:32kbps/`. `AudioSendStream` explicitly
+applies this override over the configured bitrate range. The earlier 128 kbps
+transport changes therefore did not remove every lower limit.
+
+The codec's `x-google-start-bitrate` and `x-google-max-bitrate` parameters set
+transport constraints. Opus initializes its own bitrate from `maxaveragebitrate`,
+which was absent, leaving its mono full-band default at 32 kbps. This also
+affected initialization in the v2 backend, although later bandwidth updates
+could raise its bitrate.
+
+The overlay now permits a 32–128 kbps allocation range in legacy/group calls
+and explicitly sets `maxaveragebitrate=128000` on all three outgoing Opus
+configurations. The lower bound retains bandwidth adaptation. The 128 kbps
+value is a configured encoder target, not a guarantee of measured network
+bitrate; transport overhead and congestion control still apply.
+
+This change keeps the current packet durations, encoder application/complexity,
+capture settings, SoundTouch, and voice-note processing. It corrects the verified
+bitrate mismatch without changing additional audio-processing variables.
+
+The follow-up synthetic check at 32 kbps, Android's default complexity 5, mono
+48 kHz and VOIP mode produced no oversized packets at either 20 or 120 ms for
+synthetic speech and noise. This further limits the earlier dropout diagnosis.
+
+`python Tools/call_audio_probe/check_call_bitrates.py` applies the real overlay
+to temporary copies of the pinned sources and checks the allocation bounds,
+encoder bitrate units, and outgoing packet duration. Running it with
+`--patch-ref 0c53f1a22` reproduces the missing-target/32 kbps configuration errors.
+
 ## Repair and validation
 
 - The tracked tgcalls overlay now sets outgoing `ptime=20` and `maxptime=20` in
@@ -58,10 +94,11 @@ header headroom. It does not need a Telegram account or record microphone audio.
 
 ## Limits of the diagnosis
 
-The code defect is established, but the backend selected during the user's
-specific call has not been observed. If it selected v2, the legacy oversize
-defect does not explain that call's interruption. The sudden-noise observation
-also does not prove that the physical microphone stopped capturing.
+The oversized-packet risk at 128 kbps and the leftover bitrate overrides are
+established. Neither establishes the cause of the user's specific interruption
+or subsequent quality regression without a call trace. If the call selected v2,
+the legacy packet-duration change did not change that backend. The sudden-noise
+observation also does not prove that the physical microphone stopped capturing.
 
 WebRTC noise suppression and AGC are disabled in the private-call configuration,
 but echo cancellation remains enabled. Android calls also use the

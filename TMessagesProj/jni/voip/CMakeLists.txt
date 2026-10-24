@@ -1518,7 +1518,8 @@ add_library(tgcalls STATIC
 target_compile_options(tgcalls PUBLIC
         -Wall -finline-functions -ffast-math)
 target_include_directories(tgcalls PRIVATE
-        "${CMAKE_HOME_DIRECTORY}/tgcalls/tgcalls/group")
+        "${CMAKE_HOME_DIRECTORY}/tgcalls/tgcalls/group"
+        "${CMAKE_HOME_DIRECTORY}/tgcalls/tgcalls/v2")
 set_target_properties(tgcalls PROPERTIES
         ANDROID_ARM_MODE arm)
 target_compile_definitions(tgcalls PUBLIC

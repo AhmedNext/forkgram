@@ -14445,6 +14445,14 @@ public class MessagesController extends BaseController implements NotificationCe
         long dialogId = messageObject.getDialogId();
         getMessagesStorage().markMessagesContentAsRead(dialogId, arrayList, 0, 0);
         getNotificationCenter().postNotificationName(NotificationCenter.messagesReadContent, dialogId, arrayList);
+        // Ghost playback: update our local played state without sending a
+        // listened/watched receipt for ordinary voice and circle-video notes.
+        // Expiring and view-once media keep their separate lifecycle handling.
+        if ((messageObject.isVoice() || messageObject.isRoundVideo())
+                && messageObject.messageOwner.ttl <= 0
+                && (messageObject.messageOwner.media == null || messageObject.messageOwner.media.ttl_seconds <= 0)) {
+            return;
+        }
         if (messageObject.getId() < 0) {
             markMessageAsRead(messageObject.getDialogId(), messageObject.messageOwner.random_id, Integer.MIN_VALUE);
         } else {

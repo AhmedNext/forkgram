@@ -462,6 +462,95 @@ int initRecorder(const char *path, opus_int32 sampleRate, opus_int32 bitratePara
     return 1;
 }
 
+/* Encode PCM without applying effects: used by both mic and saved-clip paths. */
+static int encodeRecorderFrame(const short *pcm, int samples, int end) {
+    _packetId++;
+    total_samples += samples;
+    op.e_o_s = end;
+    int nbBytes = opus_encode(_encoder, (opus_int16 *)pcm, frame_size, _packet, max_frame_bytes);
+    if (nbBytes < 0) {
+        LOGE("Encoding failed: %s. Aborting.", opus_strerror(nbBytes));
+        return 0;
+    }
+
+    enc_granulepos += frame_size * 48000 / coding_rate;
+    size_segments = (nbBytes + 255) / 255;
+    min_bytes = MIN(nbBytes, min_bytes);
+
+    while ((((size_segments <= 255) && (last_segments + size_segments > 255)) || (enc_granulepos - last_granulepos > max_ogg_delay)) && ogg_stream_flush_fill(&os, &og, 255 * 255)) {
+        if (ogg_page_packets(&og) != 0) {
+            last_granulepos = ogg_page_granulepos(&og);
+        }
+
+        last_segments -= og.header[26];
+        int writtenPageBytes = writeOggPage(&og, _fileOs);
+        if (writtenPageBytes != og.header_len + og.body_len) {
+            LOGE("Error: failed writing data to output stream");
+            return 0;
+        }
+        bytes_written += writtenPageBytes;
+        pages_out++;
+    }
+
+    op.packet = _packet;
+    op.bytes = nbBytes;
+    op.b_o_s = 0;
+    op.granulepos = enc_granulepos;
+    if (op.e_o_s) {
+        op.granulepos = ((total_samples * 48000 + rate - 1) / rate) + header.preskip;
+    }
+    op.packetno = 2 + _packetId;
+    ogg_stream_packetin(&os, &op);
+    last_segments += size_segments;
+
+    while ((op.e_o_s || (enc_granulepos + (frame_size * 48000 / coding_rate) - last_granulepos > max_ogg_delay) || (last_segments >= 255)) ? ogg_stream_flush_fill(&os, &og, 255 * 255) : ogg_stream_pageout_fill(&os, &og, 255 * 255)) {
+        if (ogg_page_packets(&og) != 0) {
+            last_granulepos = ogg_page_granulepos(&og);
+        }
+        last_segments -= og.header[26];
+        int writtenPageBytes = writeOggPage(&og, _fileOs);
+        if (writtenPageBytes != og.header_len + og.body_len) {
+            LOGE("Error: failed writing data to output stream");
+            return 0;
+        }
+        bytes_written += writtenPageBytes;
+        pages_out++;
+    }
+    return 1;
+}
+
+/* Saved clips already contain SoundTouch effects. Carry partial frames across
+ * joins and pad only once at EOF, including the Opus encoder lookahead. */
+typedef struct {
+    short pcm[960];
+    int count;
+} SavedClipWriter;
+
+static int writeSavedClip(SavedClipWriter *writer, const short *pcm, int samples, int end) {
+    while (samples > 0) {
+        int count = MIN(samples, frame_size - writer->count);
+        memcpy(writer->pcm + writer->count, pcm, count * sizeof(short));
+        writer->count += count;
+        pcm += count;
+        samples -= count;
+        if (writer->count == frame_size) {
+            if (!encodeRecorderFrame(writer->pcm, frame_size, 0)) return 0;
+            writer->count = 0;
+        }
+    }
+    if (end) {
+        opus_int64 finalGranule = ((total_samples + writer->count) * 48000 + rate - 1) / rate + header.preskip;
+        do {
+            memset(writer->pcm + writer->count, 0, (frame_size - writer->count) * sizeof(short));
+            int last = enc_granulepos + frame_size * 48000 / coding_rate >= finalGranule;
+            if (!encodeRecorderFrame(writer->pcm, writer->count, last)) return 0;
+            writer->count = 0;
+            if (last) break;
+        } while (1);
+    }
+    return 1;
+}
+
 int writeFrame(uint8_t *framePcmBytes, uint32_t frameByteCount, int end) {
     size_t cur_frame_size = frame_size;
     opus_int32 nb_samples = frameByteCount / 2;
@@ -474,66 +563,12 @@ int writeFrame(uint8_t *framePcmBytes, uint32_t frameByteCount, int end) {
 
     /* Process shifted and EQ-processed frames through Opus */
     while (soundtouch_num_samples() >= cur_frame_size || (end && soundtouch_num_samples() > 0)) {
-        _packetId++;
         short shiftedPcm[960];
         memset(shiftedPcm, 0, sizeof(shiftedPcm));
         int received = soundtouch_receive_samples(shiftedPcm, cur_frame_size);
         if (received <= 0) break;
-
-        total_samples += received;
-        op.e_o_s = end && (soundtouch_num_samples() == 0);
-
-        int nbBytes = opus_encode(_encoder, (opus_int16 *)shiftedPcm, cur_frame_size, _packet, max_frame_bytes);
-        if (nbBytes < 0) {
-            LOGE("Encoding failed: %s. Aborting.", opus_strerror(nbBytes));
-            return 0;
-        }
-
-        enc_granulepos += cur_frame_size * 48000 / coding_rate;
-        size_segments = (nbBytes + 255) / 255;
-        min_bytes = MIN(nbBytes, min_bytes);
-
-        while ((((size_segments <= 255) && (last_segments + size_segments > 255)) || (enc_granulepos - last_granulepos > max_ogg_delay)) && ogg_stream_flush_fill(&os, &og, 255 * 255)) {
-            if (ogg_page_packets(&og) != 0) {
-                last_granulepos = ogg_page_granulepos(&og);
-            }
-            
-            last_segments -= og.header[26];
-            int writtenPageBytes = writeOggPage(&og, _fileOs);
-            if (writtenPageBytes != og.header_len + og.body_len) {
-                LOGE("Error: failed writing data to output stream");
-                return 0;
-            }
-            bytes_written += writtenPageBytes;
-            pages_out++;
-        }
-        
-        op.packet = _packet;
-        op.bytes = nbBytes;
-        op.b_o_s = 0;
-        op.granulepos = enc_granulepos;
-        if (op.e_o_s) {
-            op.granulepos = ((total_samples * 48000 + rate - 1) / rate) + header.preskip;
-        }
-        op.packetno = 2 + _packetId;
-        ogg_stream_packetin(&os, &op);
-        last_segments += size_segments;
-        
-        while ((op.e_o_s || (enc_granulepos + (frame_size * 48000 / coding_rate) - last_granulepos > max_ogg_delay) || (last_segments >= 255)) ? ogg_stream_flush_fill(&os, &og, 255 * 255) : ogg_stream_pageout_fill(&os, &og, 255 * 255)) {
-            if (ogg_page_packets(&og) != 0) {
-                last_granulepos = ogg_page_granulepos(&og);
-            }
-            last_segments -= og.header[26];
-            int writtenPageBytes = writeOggPage(&og, _fileOs);
-            if (writtenPageBytes != og.header_len + og.body_len) {
-                LOGE("Error: failed writing data to output stream");
-                return 0;
-            }
-            bytes_written += writtenPageBytes;
-            pages_out++;
-        }
+        if (!encodeRecorderFrame(shiftedPcm, received, end && soundtouch_num_samples() == 0)) return 0;
     }
-    
     return 1;
 }
 
@@ -997,6 +1032,10 @@ int cropOpusAudio(const char *inputPath, const char *outputPath, float startTime
     }
 
     int channels = head->channel_count;
+    if (channels != 1) {
+        op_free(opusFile);
+        return 0;
+    }
     opus_int64 total_source_samples = op_pcm_total(opusFile, -1);
     if (total_source_samples < 0) {
         LOGE("Failed to get source sample count: %lld", (long long) total_source_samples);
@@ -1037,6 +1076,7 @@ int cropOpusAudio(const char *inputPath, const char *outputPath, float startTime
     }
 
     int success = 1;
+    SavedClipWriter writer = {0};
     opus_int64 remaining_samples = crop_length;
     while (remaining_samples > 0) {
         int max_samples = (int) MIN(960, remaining_samples / channels);
@@ -1054,16 +1094,14 @@ int cropOpusAudio(const char *inputPath, const char *outputPath, float startTime
         }
         remaining_samples -= samples_read;
 
-        int end = remaining_samples <= 0;
-
-        size_t byte_count = samples_read * sizeof(int16_t);
-        if (!writeFrame((uint8_t *)buffer, byte_count, end)) {
+        if (!writeSavedClip(&writer, buffer, samples_read, 0)) {
             LOGE("Failed to write frame");
             success = 0;
             break;
         }
     }
 
+    if (success) success = remaining_samples == 0 && writeSavedClip(&writer, NULL, 0, 1);
     free(buffer);
     cleanupRecorder();
     op_free(opusFile);
@@ -1071,7 +1109,7 @@ int cropOpusAudio(const char *inputPath, const char *outputPath, float startTime
     return success;
 }
 
-int append_stream(OggOpusFile *of, int16_t* buffer, int channels, int is_last) {
+int append_stream(OggOpusFile *of, int16_t* buffer, SavedClipWriter *writer) {
     opus_int64 total_source_samples = op_pcm_total(of, -1);
     if (total_source_samples < 0) {
         LOGE("Failed to get source sample count: %lld",(long long) total_source_samples);
@@ -1088,13 +1126,12 @@ int append_stream(OggOpusFile *of, int16_t* buffer, int channels, int is_last) {
             break;
         }
         total_source_samples -= samples_read;
-        size_t byte_count = (size_t) samples_read * channels * sizeof(int16_t);
-        if (!writeFrame((uint8_t*) buffer, byte_count, is_last && total_source_samples <= 0)) {
+        if (!writeSavedClip(writer, buffer, samples_read, 0)) {
             LOGE("Failed to write encoded frame");
             return 0;
         }
     }
-    return 1;
+    return total_source_samples == 0;
 }
 
 int joinOpusAudios(const char* file1, const char* file2, const char* dest) {
@@ -1129,7 +1166,12 @@ int joinOpusAudios(const char* file1, const char* file2, const char* dest) {
         return 0;
     }
 
-    int channels = MIN(head1->channel_count, head2->channel_count);
+    if (head1->channel_count != 1 || head2->channel_count != 1) {
+        op_free(opusFile1);
+        op_free(opusFile2);
+        return 0;
+    }
+    int channels = 1;
     opus_int32 rate = 48000;
 
     if (!initRecorder(dest, rate, OPUS_BITRATE_MAX)) {
@@ -1148,10 +1190,10 @@ int joinOpusAudios(const char* file1, const char* file2, const char* dest) {
         return 0;
     }
 
-    int success = append_stream(opusFile1, buffer, channels, 0);
-    if (success) {
-        success = append_stream(opusFile2, buffer, channels, 1);
-    }
+    SavedClipWriter writer = {0};
+    int success = append_stream(opusFile1, buffer, &writer);
+    if (success) success = append_stream(opusFile2, buffer, &writer);
+    if (success) success = writeSavedClip(&writer, NULL, 0, 1);
 
     free(buffer);
     cleanupRecorder();
